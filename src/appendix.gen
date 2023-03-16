@@ -1,0 +1,320 @@
+\chapter{Appendix}{
+Stanza has a number of convenience constructs that make your life easier, but they are not necessary for day to day programming. You may skim through this appendix and learn about these constructs as their need arises. 
+}
+Stanza has a number of convenience constructs that make your life easier, but they are not necessary for day to day programming. You may skim through this appendix and learn about these constructs as their need arises.
+
+\section{Stanza Compiler Options}
+\subsection{.stanza Configuration File}
+Stanza's platform and compiler settings are stored in the \code{.stanza} file that was created when you installed Stanza with \code{stanza install}. When you run Stanza it will first look for an appropriate \code{.stanza} file. Here are the places that Stanza searches in, in order, for the \code{.stanza} file.
+\list{
+\item Stanza first looks in the current working directory.
+\item If the \code{STANZA_CONFIG} environment variable is set, then Stanza looks in that directory.
+\item If the \code{HOME} environment variable is set, then Stanza looks in that directory.
+}
+
+\subsection{Basic Compilation}
+To compile \code{myfile.stanza} and generate the binary \code{myprogram} use the following command.
+\code{
+stanza myfile.stanza -o myprogram
+}
+
+\subsection{Optimization}
+To compile with optimizations, use the \code{-optimize} flag. 
+\code{
+stanza myfile.stanza -o myprogram -optimize
+}
+
+Be warned that Stanza's optimizer is only designed to handle \italic{correct} programs. A \italic{correct} program is defined to be a program that successfully runs to completion without ever failing with a call to \code{fatal}. If an unoptimized program runs to completion and generates a result, then the optimized program is guaranteed to run to completion and generate the same result. However, if the unoptimized program fails, then the behaviour of the optimized program is undefined.
+
+\subsection{Generating Assembly Files}
+By default, Stanza generates a temporary \code{.asm} file containing the generated assembly instructions and then links it with GCC. To use a specific name for the \code{.asm} file use the \code{-s} flag.
+\code{
+stanza myfile.stanza -s myprogram.s -o myprogram
+}
+The above command will generate the assembly file \code{myprogram.s} and link it to produce the binary file \code{myprogram}.
+
+For expert users that only want the assembly file, the \code{-o} flag may be omitted. The following command only generates the assembly file \code{myprograms.s}.
+\code{
+stanza myfile.stanza -s myprogram.s
+}
+
+\subsection{Pkg Files}
+Stanza's separate compilation system allows for packages to be compiled into \code{.pkg} files. The following command compiles each package in \code{myfile.stanza} to a separate \code{.pkg} file.
+\code{
+stanza myfile.stanza -pkg
+}
+
+By default, the resultant \code{.pkg} files are generated in the current working directory. To specify the folder into which they should be generated, provide the path after the \code{-pkg} flag. The following command puts the resultant \code{.pkg} files in the \code{mypkgs} folder.
+\code{
+stanza myfile.stanza -pkg mypkgs
+}
+
+Note that the current compiler requires for source files containing mutually dependent packages to be compiled together. For example, if \code{myfile1.stanza} contains 
+\code{
+defpackage mypackage1 :
+   import mypackage2
+...   
+}
+and \code{myfile2.stanza} contains
+\code{
+defpackage mypackage2 :
+   import mypackage1
+...
+}
+then \code{myfile1.stanza} and \code{myfile2.stanza} must be compiled together with the following command.
+\code{
+stanza myfile1.stanza myfile2.stanza -pkg
+}
+
+\subsection{Automatic Pkg Loading}
+When you compile a program, Stanza automatically looks for the \code{.pkg} files containing the definitions of the packages that you import. Here is the order in which Stanza looks for appropriate \code{.pkg} files.
+\list{
+\item If you've provided a path using the \code{-pkg-path} flag, then Stanza will first look there for \code{.pkg} files. For example, the following command compiles \code{myfile.stanza} using the \code{.pkg} files in the \code{mypkgs} folder.
+\code{
+stanza myfile.stanza -pkg-path mypkgs
+}
+
+\item If the \code{-pkg-path} flag is not provided, then Stanza will first look in the current working directory for \code{.pkg} files.
+
+\item If the \code{-optimize} flag is provided, then Stanza will look in the directories specified by the \code{fast-pkg-dirs} option in your \code{.stanza} configuration file. To add additional directories to the pkg path, add the following to your \code{.stanza} file.
+\code{
+fast-pkg-dirs = ("/path/to/myfastpkgs1" "/path/to/myfastpkgs2")
+}
+
+\item If the \code{-optimize} flag is provided, then Stanza will look in the \code{fast-pkgs} folder in your Stanza installation directory.
+
+\item Stanza will then look in the directories specified by the \code{pkg-dirs} option in your \code{.stanza} configuration file. To add additional directories to the pkg path, add the following to your \code{.stanza} file.
+\code{
+pkg-dirs = ("/path/to/mypkgs1" "/path/to/mypkgs2")
+}
+
+\item Stanza will then look in the \code{pkgs} folder in your Stanza installation directory.
+}
+
+\subsection{C Compiler Options}
+Stanza provides the \code{-ccfiles} flag to include additional files to the call to the C compiler. The following command compiles the \code{myfile.stanza} program and links it against the functions contained in \code{supportfunctions.c} to produce the \code{myprogram} executable.
+\code{
+stanza myfile.stanza -ccfiles supportfunctions.c -o myprogram
+}
+
+You may also use the \code{-ccflags} flag to include additional flags to the C compiler. The following command compiles the \code{myfile.stanza}  program and calls the C compiler with the additional \code{-lmylib} flag to produce the \code{myprogram} executable.
+\code{
+stanza myfile.stanza -ccflags -lmylib -o myprogram
+}
+
+Note that to provide multiple flags to the C compiler, the flags must be quoted.
+\code{
+stanza myfile.stanza -ccflags -lmylib1 -lmylib2 -o myprogram
+}
+
+\subsection{Target Platform Settings}
+By default, Stanza generates code appropriate for the platform that you specified in the call to \code{stanza install}. If you wish to generate code appropriate for a different platform, then you can override the platform using the \code{-platform} flag.
+
+The following generates the assembly file \code{myprogram.s} appropriate for the Windows platform.
+\code{
+stanza myfile.stanza -s myprogram.s -platform windows
+}
+
+\section{The When Expression}
+The \code{when} expression provides a convenient syntax for very short if expressions. The following
+\code{
+val name =
+   if meerkat? : "Timon"
+   else : "Pumbaa"
+}
+assigns the string "Timon" to \code{name} if \code{meerkat?} is \code{true}, otherwise it assigns "Pumbaa". It can be equivalently written as
+\code{
+val name = "Timon" when meerkat? else "Pumbaa"
+}
+
+In general, the form
+\code{
+a when c else b
+}
+is equivalent to the if expression
+\code{
+if c : a
+else : b
+}
+
+\subsection{Optional Else Branch}
+You may also leave off the \code{else} branch, in which case
+\code{
+a when c
+}
+is equivalent to the if expression
+\code{
+if c : a
+}
+
+This form is often convenient if you want to call a function only when some condition is \code{true}.
+\code{
+press(button) when action == "press"
+}
+
+The when expression is another example of a convenience construct implemented as a macro. 
+
+\section{The Where Expression}
+The \code{where} expression provides a convenient syntax for pulling out short definitions from complicated expressions. The following code
+\code{
+println("They call me Mr. %_" % [name]) where :
+   val name = "Pig!" when angry? else "Pumbaa."
+}
+\italic{first} defines \code{name}, and then prints the message. It is equivalent to
+\code{
+let :
+   val name = "Pig!" when angry? else "Pumbaa."
+   println("They call me Mr. %_" % [name])
+}
+
+The where expression is also implemented as a macro. As you can see, Stanza's core library makes heavy use of macros.
+
+\section{The Switch Expression}
+The \code{switch} expression provides a convenient syntax for choosing amongst a number of nested \code{if} branches. Here is an example of evaluating the first branch for which \code{empty?} evaluates to \code{true}.
+\code{
+switch empty? :
+   a : println("List a is empty.")
+   b : println("List b is empty.")
+   head(c) : println("The head of list c is empty.")
+   else : println("Nothing is empty.")
+}
+The above is equivalent to these nested \code{if} expressions.
+\code{
+if empty?(a) :
+   println("List a is empty.")
+else if empty?(b) :
+   println("List b is empty.")
+else if empty?(head(c)) :
+   println("The head of list c is empty.")
+else :
+   println("Nothing is empty.")
+}
+If the \code{else} branch is omitted then a default \code{else} branch is provided that prints an error and causes the program to fail. 
+
+The \code{switch} construct is commonly used with an anonymous function as its predicate. Here is an example of using \code{switch} to evaluate different branches depending on the value of \code{x}.
+\code{\#{
+switch {x == _} :
+   0 : println("Sunday")
+   1 : println("Monday")
+   2 : println("Tuesday")
+   3 : println("Wednesday")
+   4 : println("Thursday")
+   5 : println("Friday")
+   6 : println("Saturday")
+   else : println("Elseday")
+\#}}
+
+\section{More on Visibility}
+\subsection{Package Qualified Identifiers}
+Suppose our main program makes use of the following definitions from an \code{animals} package.
+\code{
+public defstruct Dog
+public defstruct Cat
+public name (x:Dog|Cat) -> String
+public sound (x:Dog|Cat) -> String
+}
+
+\italic{Package-qualified identifiers} allow us to reference those definitions without having to import the \code{animals} package. Here is a \code{main} function written using package-qualified identifiers and without importing \code{animals}.
+\code{
+defpackage animal-main :
+   import core
+
+defn main () :
+   val d = animals/Dog("Shadow")
+   val c = animals/Cat("Sassy")
+   println("My dog %_ goes %_!" % [animals/name(d), animals/sound(d)])
+   println("My cat %_ goes %_!" % [animals/name(c), animals/sound(c)])
+}
+
+In general, a package qualified identifier is any identifier that contains the \code{'/'} character. The characters after the last occurrence of the \code{'/'} form the name of the definition being referenced. The characters before the last occurrence form the name of the package containing the definition being referenced. For example, the following identifier
+\code{
+stanza/compiler/type/FunctionType
+}
+refers to the \code{FunctionType} definition in the \code{stanza/compiler/type} package.
+
+Package-qualified identifiers are mostly used by macro writers. Macros should expand into references to package-qualified identifiers to prevent users from having to explicitly import the runtime libraries that the macros depend upon.
+
+\subsection{Top Level Identifiers}
+Identifiers whose only occurrence of the \code{'/'} character is at the beginning of the identifier are called \italic{top-level} identifiers. For example, \code{/sound} and \code{/name} are top-level identifiers. 
+
+Top level identifiers are used to refer to a definition that is visible from the top most scope in the current package. It is used to refer to a top-level definition when its actual name has been shadowed by a local definition.
+
+For example, the following
+\code{
+defn main () :
+   val s = "Hello"
+   val length = 42
+   println(length(s))
+}
+fails to compile with the error
+\code{
+Value length of type Int cannot be called as a function.
+}
+This is because \code{length} refers to the value \code{42}, \italic{not} the function that returns the length of a string. We can get around this either by renaming the \code{length} value to something else, or by using a top-level identifier to refer to the length function.
+\code{
+defn main () :
+   val s = "Hello"
+   val length = 42
+   println(/length(s))
+}
+
+\subsection{Protected Visibility}
+In addition to public and private visibilities, Stanza supports one last visibility setting: the protected visibility. A definition with protected visibility \italic{can} be referred to from other packages, but they can \italic{only} be referred to using package-qualified identifiers. 
+
+Suppose we have an \code{animals} package containing the following definitions.
+\code{
+public defstruct Dog
+public defstruct Cat
+public name (x:Dog|Cat) -> String
+protected sound (x:Dog|Cat) -> String
+}
+
+And we will import the \code{animals} package into our \code{animals-main} package.
+\code{
+defpackage animals-main :
+   import animals
+
+defn main () :
+   val d = Dog("Shadow")
+   val c = Cat("Sassy")
+   name(d)
+   animals/sound(c)
+}
+
+All of the public definitions in \code{animals} can be directly referred to in \code{animals-main} after they have been imported, \italic{but} the protected function \code{sound} must be package-qualified. 
+
+Protected definitions are most often used by macro writers. Often, a macro simply expands into a decorated call to a helper function. We want to encourage users to use the macro form, and \italic{not} call the helper function directly. By annotating the macro with the protected visibility we make it unlikely for users to accidentally call the helper function. 
+
+\section{Macro Plugins}
+
+Starting from version \code{0.17.36}, Stanza now supports compiling macros into separate plugins that are then dynamically loaded by the compiler as needed.
+
+The compilation command for creating a macro plugin looks like this:
+\code{
+stanza compile-macros mymacros.stanza -o mymacros.macros -optimize
+}
+
+The \code{-optimize} flag is optional and should only be used after you have fully debugged and tested your macro implementation.
+
+Using the macros can then be done in one of two ways:
+
+\subsection{Including macro plugins directly}
+
+The \code{-macros} flag can be used to include one or more macro plugins. The command looks like this:
+\code{
+stanza myprogram.stanza -o myprogram -macros mymacros.macros
+}
+
+The \code{-macros} flag is general and can be used for a number of different commands, such as \code{compile}, \code{build}, \code{extend}, \code{compile-macros}, \code{compile-test}, \code{repl}, \code{run}, \code{run-test}, \code{definitions-database}.
+
+\subsection{Including macro plugins via a .proj file}
+
+Alternatively, you can add the following lines in a \code{.proj} file:
+\code{
+syntax-packages (mysyntax) defined-in "mymacros.macros"
+}
+
+And this will instruct Stanza to automatically load \code{mymacros.macros} whenever it sees the following directive:
+\code{
+#use-added-syntax(mysyntax)
+}

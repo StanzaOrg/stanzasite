@@ -1,0 +1,1203 @@
+\chapter{Advanced Control Flow}{
+This chapter teaches you about Stanza's advanced control flow constructs, as well as about the fundamental mechanism underlying all of them: the targetable coroutine system.
+}
+Thus far, the only control flow mechanism you've been shown was the \code{label} construct for creating labeled scopes. But this one construct was powerful enough to express early returns from functions, early breaks from loops, and also (though we haven't shown it) early jumps to the next loop iteration. Each of the above functionality has traditionally been a separate keyword and language feature in other languages, but they're all expressible with just the \code{label} construct in Stanza. It is a powerful and general mechanism.
+
+In actuality, Stanza only has a single control flow mechanism, called \italic{targetable coroutines}. The \code{label} construct is just a common usage pattern for them. In this chapter we'll learn about the other common usage pattern of coroutines: attempts and failures, exception handlers, and generators. At the very end, we'll show you the general coroutine construct, along with some examples demonstrating their use.
+
+\section{First Class Labeled Scopes}
+Here is a function that finds the smallest power of two that is greater or equal to the given argument, \code{n}.
+\code{
+defn min-pow-2 (n:Int) :
+   label<Int> return :
+      var x = 1
+      while true :
+         if x >= n : return(x)
+         x = x * 2
+      fatal("Unreachable")   
+}
+
+Let's try it out.
+\code{
+defn main () :
+   defn test (n:Int) :
+      println("The minimum power of 2 greater or equal to %_ is %_." %
+              [n, min-pow-2(n)])
+   test(10)
+   test(100)
+   test(1000)
+   test(10000)
+   test(100000)
+   test(1000000)
+
+main()
+}
+
+Compiling and running the above prints out
+\code{
+The minimum power of 2 greater or equal to 10 is 16.
+The minimum power of 2 greater or equal to 100 is 128.
+The minimum power of 2 greater or equal to 1000 is 1024.
+The minimum power of 2 greater or equal to 10000 is 16384.
+The minimum power of 2 greater or equal to 100000 is 131072.
+The minimum power of 2 greater or equal to 1000000 is 1048576.
+}
+
+\subsection{Pulling Out the Body}
+That's fairly standard so far. But now let's pull out the body of the while loop into a separate function, called \code{pow-2?}. It accepts an argument, \code{x}, that is the current number being tested, an argument, \code{n}, as the limit we're trying to reach, and also a function called \code{return}, which we'll explain later.
+\code{
+defn pow-2? (x:Int, n:Int, return:Int -> Void) -> Int :
+   if x >= n : return(x)
+   else : x * 2
+}
+\code{pow-2?} first checks whether \code{x} is greater or equal to \code{n}, and calls \code{return} with \code{x} if it is. Otherwise it returns the next value of \code{x} to \code{test}, which is \code{x * 2}.
+
+We now update the \code{min-pow-2} function to call \code{pow-2?}.
+\code{
+defn min-pow-2 (n:Int) :
+   label<Int> return :
+      var x = 1
+      while true :
+         x = pow-2?(x, n, return)
+      fatal("Unreachable")
+}
+Compile and run the program to verify that it still works.
+
+What is happening here!? We've somehow passed the exit function out of \code{min-pow-2} and into \code{pow-2?}. Then when \code{pow-2?} called \code{return}, it returned not from \code{pow-2?}, but from \code{min-pow-2}!.
+
+Let's review the definition of the \code{label} construct. Here is its general form.
+\code{
+label<T> exit :
+   body
+}
+The \code{label} construct requires the type it returns, \code{T}, the name of the exit function, \code{exit}, and the body to execute, \code{body}. \code{label} creates an exit function of type \code{T -> Void} with the name \code{exit}, and then executes \code{body}. If \code{body} never calls the exit function then the result of \code{body} is returned by \code{label}. If \code{body} calls the exit function then \code{label} \italic{immediately} returns the argument passed to the exit function. The return type \code{Void} for the exit function indicates that it \italic{doesn't return} to its caller.
+
+There is nothing in the description of \code{label} preventing us from passing out the exit function, so the call to \code{return} in \code{pow-2?} is simply causing the \code{label} construct to return \code{x}, which is then returned by \code{min-pow-2}.
+
+\subsection{Storing the Exit Function}
+We can even store the exit function in a variable if we like. Here's a global variable
+\code{
+var RETURN: Int -> Void
+}
+into which we will store the exit function. Thus the exit function will no longer be passed in to \code{pow-2?} as an argument.
+\code{
+defn pow-2? (x:Int, n:Int) -> Int :
+   if x >= n : RETURN(x)
+   else : x * 2
+}
+It will instead be stored in the global variable before \code{pow-2?} is called.
+\code{
+defn min-pow-2 (n:Int) :
+   label<Int> return :
+      RETURN = return
+      var x = 1
+      while true :         
+         x = pow-2?(x, n)
+      fatal("Unreachable")
+}
+Compile and verify that the program still works as before.
+
+Here you're starting to see just how flexible the \code{label} construct really is. Storing the exit function seems like a strange thing to want to do but keep it in the back of your mind as we talk about the other constructs.
+
+\section{Dynamic Wind}
+One of the issues that accompanies having a powerful control flow mechanism is that in a sequence of expressions, evaluating the first expression does not guarantee that the last one will be evaluated.
+\code{
+f()
+g()
+h()
+}
+For example, in the above sequence, even after \code{f} returns, there is no guarantee that \code{h} will be called. If \code{g} calls an exit function then \code{h} will be skipped entirely.
+
+Let us suppose that we do not want to pass in the limit, \code{n}, as an argument to \code{pow-2?}. We would like to keep it stored in a global variable called \code{LIMIT} and set it to the appropriate value \italic{only during the call} to \code{pow-2?}. At all other times, \code{LIMIT} should retain its initial value of \code{0}. Here is an initial attempt.
+\code{
+var LIMIT: Int = 0
+var RETURN: Int -> Void
+
+defn pow-2? (x:Int) -> Int :
+   if x >= LIMIT : RETURN(x)
+   else : x * 2
+
+defn min-pow-2 (n:Int) :
+   label<Int> return :
+      RETURN = return      
+      var x = 1
+      while true :
+         val old-limit = LIMIT
+         LIMIT = n
+         x = pow-2?(x)
+         LIMIT = old-limit
+      fatal("Unreachable")
+
+defn main () :
+   defn test (n:Int) :
+      println("The minimum power of 2 greater or equal to %_ is %_." %
+              [n, min-pow-2(n)])
+   test(10)
+   test(100)
+   test(1000)
+   test(10000)
+   test(100000)
+   test(1000000)
+
+main()
+println("After main, LIMIT is %_." % [LIMIT])
+}
+Printing and compiling the above prints out
+\code{
+The minimum power of 2 greater or equal to 10 is 16.
+The minimum power of 2 greater or equal to 100 is 128.
+The minimum power of 2 greater or equal to 1000 is 1024.
+The minimum power of 2 greater or equal to 10000 is 16384.
+The minimum power of 2 greater or equal to 100000 is 131072.
+The minimum power of 2 greater or equal to 1000000 is 1048576.
+After main, LIMIT is 1000000.
+}
+So \code{min-pow-2} is working correctly, but \code{LIMIT} is not being restored back to its original value. What is happening? Well the call to \code{pow-2?} in
+\code{
+LIMIT = n
+x = pow-2?(x)
+LIMIT = old-limit
+}
+may call the exit function, \code{return}. If that happens, then the \code{label} construct immediately returns and the last \code{LIMIT = old-limit} expression is never evaluated. 
+
+Stanza provides the special function \code{dynamic-wind} to handle these situations. It allows you to surround a body of code between some \italic{wind in} and \italic{wind out} code. The wind in code is \italic{guaranteed} to execute whenever the control flow enters the body, and the wind out code is \italic{guaranteed} to execute whenever the control flow exits the body. Here is how it's used.
+\code{
+defn min-pow-2 (n:Int) :
+   label<Int> return :
+      RETURN = return      
+      var x = 1
+      while true :
+         val old-limit = LIMIT
+         dynamic-wind(
+            fn () :
+               LIMIT = n
+            fn () :   
+               x = pow-2?(x)
+            fn (final) :            
+               LIMIT = old-limit)
+      fatal("Unreachable")
+}
+The wind in, body, and wind out code is given to \code{dynamic-wind} as three anonymous functions. The \code{final} argument for the wind out code is a boolean value that indicates whether it is guaranteed to be the last time the wind out code is called. In this example, \code{final} will always be \code{true}. 
+
+Now compiling and running the program again prints out
+\code{
+The minimum power of 2 greater or equal to 10 is 16.
+The minimum power of 2 greater or equal to 100 is 128.
+The minimum power of 2 greater or equal to 1000 is 1024.
+The minimum power of 2 greater or equal to 10000 is 16384.
+The minimum power of 2 greater or equal to 100000 is 131072.
+The minimum power of 2 greater or equal to 1000000 is 1048576.
+After main, LIMIT is 0.
+}
+indicating the \code{LIMIT} is properly being reset to its original value.
+
+\section{Dynamically Scoped Variables}
+In the above example, we say that \code{LIMIT} is being used as a \italic{dynamically scoped} variable. This is a common pattern and Stanza provides a syntactic shorthand for our call to \code{dynamic-wind}.
+
+Here is the \code{min-pow-2} function written using the \code{let-var} shorthand.
+\code{
+defn min-pow-2 (n:Int) :
+   label<Int> return :
+      RETURN = return      
+      var x = 1
+      while true :
+         let-var LIMIT = n :
+            x = pow-2?(x)
+      fatal("Unreachable")
+}
+
+The general form of \code{let-var} is
+\code{
+let-var x = v :
+   body
+}
+It temporarily sets the \code{x} variable to the value \code{v} before executing \code{body}. \code{x} is restored to its previous value after \code{body} is finished executing.
+
+\section{Attempts and Failures}
+Attempts and failures are syntactic sugar for another use case of targetable coroutines that operate very similarly to labeled scopes. Here is an example.
+\code{
+defn read-letter (xs:Seq<Char>) -> Char :
+   if not letter?(peek(xs)) : fail()
+   next(xs)
+
+defn read-digit (xs:Seq<Char>) -> Char :
+   if not digit?(peek(xs)) : fail()
+   next(xs)
+
+defn read-all (xs:Collection<Char>) :
+   val xs-seq = to-seq(xs)
+   while not empty?(xs-seq) :
+      attempt : 
+         println("Read letter: %_" % [read-letter(xs-seq)])
+      else attempt :
+         println("Read digit: %_" % [read-digit(xs-seq)])
+      else :
+         println("Read something else: %~" % [next(xs-seq)])
+
+read-all("42 is the answer.")         
+}
+Compiling the above prints out
+\code{
+Read digit: 4
+Read digit: 2
+Read something else: ' '
+Read letter: i
+Read letter: s
+Read something else: ' '
+Read letter: t
+Read letter: h
+Read letter: e
+Read something else: ' '
+Read letter: a
+Read letter: n
+Read letter: s
+Read letter: w
+Read letter: e
+Read letter: r
+Read something else: '.'
+}
+The function \code{read-all} calls \code{read-letter} and \code{read-digit} in an \code{attempt} block. If the block evaluates without ever calling \code{fail} then the result of the block is returned by \code{attempt}. If the block calls \code{fail}, then \code{attempt} \italic{immediately} returns the result of evaluating the code in the \code{else} branch.
+
+\section{Example: S-Expression Parser}
+Here is an example of using \code{attempt} and \code{fail} to program a simple s-expression parser. An s-expression, in this case, will be defined as either
+\list{
+\item a positive integer,
+\item a symbol consisting of letters,
+\item or a list containing more s-expressions.
+}
+
+\subsection{Overall Structure}
+Here is the basic structure of the parser.
+\code{
+defn parse-sexp (sexp:String) -> List :
+   val chars = to-seq(sexp)
+
+   defn eat-while (pred?: Char -> True|False) -> String :
+      ...
+
+   defn eat-whitespace () -> False :
+      ... calls eat-while ...
+   
+   defn parse-symbol () -> Symbol :
+      ... calls eat-while ...
+         
+   defn parse-number () -> Int :
+      ... calls eat-while ...
+
+   defn parse-sequence () -> List :
+      ... calls eat-whitespace, parse-symbol, parse-number, and parse-list
+      
+   defn parse-list () -> List :
+      ... calls parse-list ...
+
+   parse-sequence()
+   ...
+}
+
+parse-sexp is given a string, and returns a list of s-expressions. Upon entering the function, we ask to view the string as a sequence of characters, \code{chars}. \code{eat-while} and \code{eat-whitespace} are helper functions. \code{parse-symbol}, \code{parse-number}, \code{parse-sequence}, and \code{parse-list} are mutually recursive functions that parse symbols, numbers, sequences of s-expressions, and lists of s-expressions.
+
+\subsection{Helper Functions}
+The \code{eat-while}, and \code{eat-whitespace} functions are helper functions for reading from \code{chars}. \code{eat-while} takes a predicate function, \code{pred?}, and eats characters from \code{chars} as long as \code{pred?} returns \code{true}. It returns a string containing the eaten characters. \code{eat-whitespace} eats all leading spaces in \code{chars}. Here are their definitions.
+
+\code{\#{
+defn eat-while (pred?: Char -> True|False) -> String :
+   string-join(take-while(pred?, chars))
+
+defn eat-whitespace () -> False :
+   eat-while({_ == ' '})
+   false
+\#}}
+
+\subsection{Parsing Symbols}
+The \code{parse-symbol} function eats and returns the next symbol from \code{chars}. If the next character in \code{chars} is not a letter, then \code{parse-symbol} fails.
+\code{
+defn parse-symbol () -> Symbol :
+   if not letter?(peek(chars)) : fail()
+   to-symbol(eat-while(letter?))
+}
+
+\subsection{Parsing Numbers}
+The \code{parse-number} function eats and returns the next positive integer from \code{chars}. If the next character in \code{chars} is not a digit, or if the number cannot be represented in 32 bits, then \code{parse-number} fails. 
+\code{
+defn parse-number () -> Int :
+   if not digit?(peek(chars)) : fail()
+   val x = to-int(eat-while(digit?))
+   if x is-not Int : fail()
+   x as Int
+}
+
+\subsection{Parsing Sequences}
+The \code{parse-sequence} function reads as many s-expressions as possible by calling \code{parse-symbol}, \code{parse-number}, and \code{parse-list} repeatedly.
+\code{
+defn parse-sequence () -> List :
+   eat-whitespace()
+   if empty?(chars) :
+      List()
+   else :
+      attempt : cons(parse-symbol(), parse-sequence())
+      else attempt : cons(parse-number(), parse-sequence())
+      else attempt : cons(parse-list(), parse-sequence())
+      else : List()
+}
+Notice the use of \code{attempt} to first try parsing a symbol, and then if that fails to then try parsing a number, followed by trying to parse a list. 
+
+\subsection{Parsing Lists}
+The \code{parse-list} function eats and returns the next list from \code{chars}. A list is simply a sequence of s-expressions surrounded by \code{()} characters. If the next character is not an opening parenthesis then \code{parse-list} fails.
+\code{
+defn parse-list () -> List :   
+   if peek(chars) != '(' : fail()
+   next(chars)
+   val items = parse-sequence()
+   if empty?(chars) : fatal("Unclosed opening parenthesis.")
+   else if peek(chars) == ')' : (next(chars), items)
+   else : fatal("Expected closing parenthesis but got %~." % [next(chars)])
+}
+
+\subsection{Driver}
+Finally, to start off the function, we attempt to read as many s-expressions as possible from \code{chars} using \code{parse-sequence}. 
+\code{
+val items = parse-sequence()
+if empty?(chars) : items
+else : fatal("Unexpected character: %~." % [next(chars)])
+}
+
+\subsection{Listing}
+Here is the complete definition of \code{parse-sexp}.
+\code{\#{
+defn parse-sexp (sexp:String) :
+   val chars = to-seq(sexp)
+
+   defn eat-while (pred?: Char -> True|False) -> String :
+      string-join(take-while(pred?, chars))
+
+   defn eat-whitespace () -> False :
+      eat-while({_ == ' '})
+      false
+   
+   defn parse-symbol () -> Symbol :
+      if not letter?(peek(chars)) : fail()
+      to-symbol(eat-while(letter?))
+         
+   defn parse-number () -> Int :
+      if not digit?(peek(chars)) : fail()
+      val x = to-int(eat-while(digit?))
+      if x is-not Int : fail()
+      x as Int
+
+   defn parse-sequence () -> List :
+      eat-whitespace()
+      if empty?(chars) :
+         List()
+      else :
+         attempt : cons(parse-symbol(), parse-sequence())
+         else attempt : cons(parse-number(), parse-sequence())
+         else attempt : cons(parse-list(), parse-sequence())
+         else : List()
+      
+   defn parse-list () -> List :   
+      if peek(chars) != '(' : fail()
+      next(chars)
+      val items = parse-sequence()
+      if empty?(chars) : fatal("Unclosed opening parenthesis.")
+      else if peek(chars) == ')' : (next(chars), items)
+      else : fatal("Expected closing parenthesis but got %~." % [next(chars)])
+
+   val items = parse-sequence()
+   if empty?(chars) : items
+   else : fatal("Unexpected character: %~." % [next(chars)])
+\#}}
+
+\subsection{Trying it Out}
+Let's try it out on the following string.
+\code{
+do(println, parse-sexp("This (is) (commonly (called an (S) (Expression)))"))
+}
+When compiled and ran it prints out
+\code{
+This
+(is)
+(commonly (called an (S) (Expression)))
+}
+
+\subsection{Unveiling The Internals}
+The \code{attempt} construct is just syntactic sugar for a function call.
+\code{
+attempt : conseq
+else : alt
+}
+is equivalent to
+\code{
+with-attempt(
+   fn () : conseq
+   fn () : alt)
+}
+
+As an exercise, try and implement your own \code{with-attempt} function by using the \code{label} construct.
+
+\section{Exception Handling}
+Our s-expression parser from the previous example fails when called with invalid input (though with very nice error messages). Here is what happens if we forget a closing parenthesis at the end.
+\code{
+do(println, parse-sexp("This (is) (commonly (called an (S) (Expression))"))
+}
+Compiling and running the above prints out
+\code{
+FATAL ERROR: Unclosed opening parenthesis.
+   at test.stanza:39.25
+   at test.stanza:32.29
+   at core/core.stanza:3725.13
+   at core/core.stanza:847.16
+   at core/core.stanza:3724.14
+   ...
+}
+
+But what if we cannot guarantee that the input is correct? Suppose we want users to type an arbitrary string into the terminal and print the parsed s-expression if it's well formed, or else ask them to try again if it's not.
+
+A potential solution would be to write another function called \code{sexp?} that returns \code{true} or \code{false} depending on whether its argument is a well formed string. But checking whether an s-expression is well formed is almost as much work as parsing it, so that's an inefficient solution.
+
+Stanza provides us a mechanism for handling this called \italic{exceptions}.
+
+\subsection{Exception Objects}
+The first step is to declare our own \code{Exception} types, one for each type of error the parser can encounter.
+\code{
+defstruct UnclosedParenthesis <: Exception
+defmethod print (o:OutputStream, e:UnclosedParenthesis) :
+   print(o, "Unclosed opening parenthesis.")
+   
+defstruct UnmatchedParenthesis <: Exception : (char:Char)
+defmethod print (o:OutputStream, e:UnmatchedParenthesis) :
+   print(o, "Expected closing parenthesis but got %~." % [char(e)])
+   
+defstruct UnexpectedCharacter <: Exception : (char:Char)
+defmethod print (o:OutputStream, e:UnexpectedCharacter) :
+   print(o, "Unexpected character: %~." % [char(e)])
+}
+
+There are three different errors that are detected by our parser. 
+\list{
+\item The string is missing a closing parenthesis at the end.
+\item We are currently reading a list and encountered a strange character.
+\item We've read as many s-expressions as possible and there is a strange character left over.
+}
+
+\subsection{Throwing Exceptions}
+The next step is to change the calls to \code{fatal} to calls to \code{throw} with our newly defined \code{Exception} objects.
+\code{\#{
+defn parse-sexp (sexp:String) :
+
+   ...
+      
+   defn parse-list () -> List :   
+      ...
+      if empty?(chars) : throw(UnclosedParenthesis())
+      else if peek(chars) == ')' : (next(chars), items)
+      else : throw(UnmatchedParenthesis(next(chars)))
+
+   val items = parse-sequence()
+   if empty?(chars) : items
+   else : throw(UnexpectedCharacter(next(chars)))
+\#}}
+
+\subsection{Catching Exceptions}
+The final step is to \italic{catch} the thrown exceptions. We can decide which types of exceptions to catch, and which not to. In this example, we'll assume that the string doesn't contain any strange characters and catch only the unclosed parenthesis error.
+\code{
+try :
+   do(println, parse-sexp("This (is) (commonly (called an (S) (Expression))"))
+catch (e:UnclosedParenthesis) :
+   println("You forgot to close an opening parenthesis. Please try again.")
+}
+Compiling and running the program now prints out
+\code{
+You forgot to close an opening parenthesis. Please try again.
+}
+
+Here is the general form of the \code{try} construct.
+\code{
+try :
+   body
+catch (e:ExceptionA) :
+   a-handler
+catch (e:ExceptionB) :
+   b-handler
+...   
+}
+The \code{try} construct evaluates the given \code{body} after installing the given exception handlers. If \code{body} is evaluated without ever calling \code{throw} then its result is returned by \code{try}. If \code{body} calls \code{throw} with some \code{Exception} object, then \code{try} immediately searches for the first exception handler that can accept the \code{Exception} object and returns the result of evaluating that handler. 
+
+\section{Generators}
+The control flow constructs you've been introduced to so far, labeled scopes, attempts and failures, and exceptions, have all served the purpose of \italic{leaving} a block of code. Generators are the first control flow construct you will learn capable of \italic{resuming} a block of code. 
+
+Here is a generator that \italic{yields} the first three positive integers.
+\code{
+val xs:Seq<Int> = generate<Int> :
+   println("Yielding One")
+   yield(1)
+   println("Yielding Two")
+   yield(2)
+   println("Yielding Three")
+   yield(3)
+}
+Notice that the \code{generate} construct returns a \code{Seq}. Let's try printing out the items in the sequence.
+\code{
+println("The first item in xs is")
+println(next(xs))
+println("The second item in xs is")
+println(next(xs))
+println("The third item in xs is")
+println(next(xs))
+}
+Compiling and running the above prints out
+\code{
+The first item in xs is
+Yielding One
+1
+The second item in xs is
+Yielding Two
+2
+The third item in xs is
+Yielding Three
+3
+}
+
+\subsection{The Ability to Resume}
+It's worth paying attention to the order in which the messages are printed out. The snippet
+\code{
+println("The first item in xs is")
+println(next(xs))
+}
+by itself, prints out
+\code{
+The first item in xs is
+Yielding One
+1
+}
+Thus the call to \code{next(xs)} causes control to enter the block of code in the \code{generate} construct. The message \code{"Yielding One"} is printed out, and then the call to \code{yield(1)} leaves the \code{generate} construct and \code{1} is the return value of \code{next(xs)}.
+
+The next snippet
+\code{
+println("The second item in xs is")
+println(next(xs))
+}
+prints out
+\code{
+The second item in xs is
+Yielding Two
+2
+}
+Thus the call to \code{next(xs)} causes control to \italic{re-enter} the block \code{generate} construct, resuming from just after the first call to \code{yield}. The message \code{"Yielding Two"} is printed out, and then the call to \code{yield(2)} leaves the \code{generate} construct once again and \code{2} is the return value of the second call to \code{next(xs)}.
+
+The last snippet
+\code{
+println("The third item in xs is")
+println(next(xs))
+}
+prints out
+\code{
+The third item in xs is
+Yielding Three
+3
+}
+Similarly, the call to \code{next(xs)} resumes the block in the \code{generate} construct from just after the second call to \code{yield}. The message \code{"Yielding Three"} is printed out, and then the call to \code{yield(3)} leaves the \code{generate} construct once again and \code{3} is the return value of the third call to \code{next(xs)}.
+
+Thus the \code{generate} construct provides a very convenient way of creating a lazily constructed sequence. 
+
+\subsection{General Form}
+Here is the general form of the \code{generate} construct.
+\code{
+generate<T> :
+   body
+}
+\code{generate} returns a \code{Seq<T>} by lazily executing the given \code{body} in a scope containing the generation functions, \code{yield} and \code{break}. 
+
+\code{yield} is of type \code{T -> False} and its argument becomes an element in the generated \code{Seq}. Execution of the generate block pauses at \code{yield}, and is resumed on the next call to \code{next} on the sequence.
+
+\code{break} is both of type \code{() -> Void} and \code{T -> Void}. If no argument is given to \code{break}, then execution of the generate block ends here and marks the end of the generated sequence. If an argument is given to \code{break}, then that element is first yielded before the generate block is ended.
+
+If the generated type, \code{T}, is not explicitly provided, then it is assumed to be \code{?} by default.
+
+
+\subsection{Example: Flattening a Tuple}
+In this example, we'll determine whether two tuples contain the same elements as each other if we lay out their elements in depth-first order. For example, the tuple
+\code{
+[[1] [2 [3]] [[4 5] 6]]
+}
+contains the elements \code{1}, \code{2}, \code{3}, \code{4}, \code{5}, \code{6} once laid out in depth-first order.
+
+Here's the most straightforward way of doing this. We'll write a function called \code{flatten} that returns a \code{Vector} containing a tuple's elements in depth-first order.
+\code{
+defn flatten (x:Tuple) -> Vector :
+   val v = Vector<?>()
+   defn loop (x) :
+      match(x) :
+         (x:Tuple) : do(loop, x)
+         (x) : add(v, x)
+   loop(x)         
+   v      
+}
+Let's try it out.
+\code{
+println(flatten([[1] [2 [3]] [[4 5] 6]]))
+}
+Compiling and running the above prints out
+\code{
+[1 2 3 4 5 6]
+}
+
+To check whether two tuples contain the same elements, we can just flatten each of them and then compare the elements.
+\code{
+defn same-elements? (a:Tuple, b:Tuple) :
+   if all?(equal?, flatten(a), flatten(b)) :
+      println("%_ and %_ have the same elements." % [a, b])
+   else :
+      println("%_ and %_ have different elements." % [a, b])
+}
+
+Let's test it out on the following tuples.
+\code{
+same-elements?(
+   [[1] [2 [3]] [[4 5] 6]]
+   [1 [[2 3 4] [5]] [6]])
+
+same-elements?(
+   [[1] [2 [3]] [[4 5] 6]]
+   [[[0] 2] [3 [4 5]] 6])
+}
+Compiling and running the above prints out
+\code{
+[[1] [2 [3]] [[4 5] 6]] and [1 [[2 3 4] [5]] [6]] have the same elements.
+[[1] [2 [3]] [[4 5] 6]] and [[[0] 2] [3 [4 5]] 6] have different elements.
+}
+
+Notice though, that in both cases, we computed a full flattening of both tuples before checking to see whether they are equal. This is obviously inefficient in the second case since we can tell they are clearly different just by examining their first element. How do we avoid computing the full flattening?
+
+The solution is to \italic{lazily} compute the flattening. Let's change \code{flatten} to use the \code{generate} construct to lazily compute the flattened tuples. To track how much of the tuples are being flattened let's also add a print statement.
+\code{
+defn flatten (x:Tuple) -> Seq :
+   val index = to-seq(0 to false)
+   generate :
+      defn loop (x) :
+         match(x) :
+            (x:Tuple) :
+               do(loop, x)
+            (x) :
+               println("Yielding Item %_" % [next(index)])
+               yield(x)
+      loop(x)         
+}
+Compiling and running the program again prints out
+\code{
+Yielding Item 0
+Yielding Item 0
+Yielding Item 1
+Yielding Item 1
+Yielding Item 2
+Yielding Item 2
+Yielding Item 3
+Yielding Item 3
+Yielding Item 4
+Yielding Item 4
+Yielding Item 5
+Yielding Item 5
+[[1] [2 [3]] [[4 5] 6]] and [1 [[2 3 4] [5]] [6]] have the same elements.
+Yielding Item 0
+Yielding Item 0
+[[1] [2 [3]] [[4 5] 6]] and [[[0] 2] [3 [4 5]] 6] have different elements.
+}
+Thus the results are the same as before, and you can see that, for the second comparison, both generators (one for each tuple) are only computing up to the first element.
+
+
+\section{Coroutines}
+The \code{label}, \code{attempt}, \code{try}, and \code{generate} constructs are all specific usage patterns of Stanza's \italic{targetable coroutine} system. Here we'll show you how to use the coroutine system in its full generality. It is rare in daily programming to encounter a problem that requires a use of coroutines that isn't already handled by one of the special case constructs. But for implementing libraries and frameworks that make heavy use of concurrency and non-standard control flow, coroutines may be indispensable. 
+
+\subsection{Sending Things Out}
+Here is the function that will represent our coroutine body.
+\code{
+defn my-process (co:Coroutine<Int,String>, a:Int) -> String :
+   println("Passing out Timon")
+   suspend(co, "Timon")
+   println("Passing out and")
+   suspend(co, "and")
+   println("Passing out Pumbaa")
+   suspend(co, "Pumbaa")
+   println("Coroutine is done")
+   "Done"
+}
+The type \code{Coroutine<Int,String>} represents a coroutine for which integers are sent into the coroutine, and for which strings are sent back from the coroutine. The function for sending values out of the coroutine is \code{suspend}. 
+
+Let's now create our coroutine object and resume it a few times.
+\code{\#{
+println("Create coroutine")
+val co = Coroutine<Int,String>(my-process)
+
+println("\nResume with 42")
+val x = resume(co, 42)
+println("Got back x = %_" % [x])
+
+println("\nResume with 43")
+val y = resume(co, 43)
+println("Got back y = %_" % [y])
+
+println("\nResume with 44")
+val z = resume(co, 44)
+println("Got back z = %_" % [z])
+
+println("\nResume with 45")
+val w = resume(co, 45)
+println("Got back w = %_" % [w])
+\#}}
+Notice that \code{resume} is called with integers. When the above is compiled and ran it prints out
+\code{
+Create coroutine
+
+Resume with 42
+Passing out Timon
+Got back x = Timon
+
+Resume with 43
+Passing out and
+Got back y = and
+
+Resume with 44
+Passing out Pumbaa
+Got back z = Pumbaa
+
+Resume with 45
+Coroutine is done
+Got back w = Done
+}
+Thus \code{suspend} acts much like \code{yield} did for the \code{generate} construct, and \code{resume} acts much like \code{next} did. This is no accident of course. The \code{generate} construct is implemented in terms of \code{suspend} and \code{resume} underneath.
+
+\subsection{Breaking Things Off}
+In addition to \code{suspend}, a function called \code{break} can also be used to send values out of a coroutine. The difference is that a call to \code{break} cannot later be resumed.
+
+Let's change our \code{my-process} function to send out \code{"Pumbaa"} with \code{break} instead of \code{suspend}.
+\code{
+defn my-process (co:Coroutine<Int,String>, a:Int) -> String :
+   println("Passing out Timon")
+   suspend(co, "Timon")
+   println("Passing out and")
+   suspend(co, "and")
+   println("Passing out Pumbaa")
+   break(co, "Pumbaa")
+   println("Coroutine is done")
+   "Done"
+}
+
+Compiling and running the program again prints out
+\code{
+Create coroutine
+
+Resume with 42
+Passing out Timon
+Got back x = Timon
+
+Resume with 43
+Passing out and
+Got back y = and
+
+Resume with 44
+Passing out Pumbaa
+Got back z = Pumbaa
+
+Resume with 45
+FATAL ERROR: Cannot resume coroutine. Coroutine is already closed.
+   at core/core.stanza:984.13
+   at core/core.stanza:862.16
+   at core/core.stanza:897.40
+   at core/core.stanza:862.16
+   at test.stanza:31.8
+}
+The coroutine is \italic{closed} after the call to \code{break}, and thus our call to \code{resume} fails.
+
+\subsection{Sending Things In}
+The obvious unanswered question now is: what is happening with the \code{42}, \code{43}, \code{44}, and \code{45} values that \code{resume} is being called with? To answer that, let's update our \code{my-process} function to print out the return values of \code{suspend} (and change the call to \code{break} back into \code{suspend}). 
+\code{\#{
+defn my-process (co:Coroutine<Int,String>, a:Int) -> String :
+   println("Came in a = %_" % [a])
+   println("Passing out Timon")
+   val b = suspend(co, "Timon")
+
+   println("Came in b = %_" % [b])
+   println("Passing out and")
+   val c = suspend(co, "and")
+
+   println("Came in c = %_" % [c])
+   println("Passing out Pumbaa")
+   val d = suspend(co, "Pumbaa")
+
+   println("Came in d = %_" % [d])
+   println("Coroutine is done")
+   "Done"
+
+println("Create coroutine")
+val co = Coroutine<Int,String>(my-process)
+
+println("\nResume with 42")
+val x = resume(co, 42)
+println("Got back x = %_" % [x])
+
+println("\nResume with 43")
+val y = resume(co, 43)
+println("Got back y = %_" % [y])
+
+println("\nResume with 44")
+val z = resume(co, 44)
+println("Got back z = %_" % [z])
+
+println("\nResume with 45")
+val w = resume(co, 45)
+println("Got back w = %_" % [w])
+\#}}
+Compiling and running the program again prints out
+\code{
+Create coroutine
+
+Resume with 42
+Came in a = 42
+Passing out Timon
+Got back x = Timon
+
+Resume with 43
+Came in b = 43
+Passing out and
+Got back y = and
+
+Resume with 44
+Came in c = 44
+Passing out Pumbaa
+Got back z = Pumbaa
+
+Resume with 45
+Came in d = 45
+Coroutine is done
+Got back w = Done
+}
+
+Thus, \code{suspend} sends its argument out from the coroutine, and returns the value sent into the coroutine. \code{resume} sends its argument into the coroutine, and returns the value sent out from the coroutine.
+
+\subsection{Closing Things Off}
+From outside the coroutine body, we may also choose to \italic{close} a coroutine when we're finished with it. Let's try closing our coroutine after getting back \code{"Pumbaa"}.
+
+\code{\#{
+println("Create coroutine")
+val co = Coroutine<Int,String>(my-process)
+
+println("\nResume with 42")
+val x = resume(co, 42)
+println("Got back x = %_" % [x])
+
+println("\nResume with 43")
+val y = resume(co, 43)
+println("Got back y = %_" % [y])
+
+println("\nResume with 44")
+val z = resume(co, 44)
+println("Got back z = %_" % [z])
+
+close(co)
+
+println("\nResume with 45")
+val w = resume(co, 45)
+println("Got back w = %_" % [w])
+\#}}
+
+Compiling and running the above prints out
+\code{
+Create coroutine
+
+Resume with 42
+Came in a = 42
+Passing out Timon
+Got back x = Timon
+
+Resume with 43
+Came in b = 43
+Passing out and
+Got back y = and
+
+Resume with 44
+Came in c = 44
+Passing out Pumbaa
+Got back z = Pumbaa
+
+Resume with 45
+FATAL ERROR: Cannot resume coroutine. Coroutine is already closed.
+   at core/core.stanza:984.13
+   at core/core.stanza:862.16
+   at core/core.stanza:897.40
+   at core/core.stanza:862.16
+   at test.stanza:40.8
+}
+
+\subsection{Checking a Coroutine's Status}
+There are two functions for checking on the status of a coroutine, \code{active?} and \code{open?}. 
+
+Calling \code{active?} on a coroutine will return \code{true} if the coroutine's body is currently running, and \code{false} otherwise. Only active coroutines can be suspended or broken from.
+
+Calling \code{open?} on a coroutine will return \code{true} if the coroutine's body is not currently running and open to be resumed. Only open coroutines can be resumed.
+
+
+\subsection{Nested Coroutines}
+A coroutine may also launch more coroutines. Notice that unlike \code{yield}, the calls to \code{suspend}, \code{break}, and \code{resume} explicitly requires, as its first argument, the target coroutine. Being able to explicitly designate the target of the \code{suspend}, \code{break}, and \code{resume} operations are key to allowing nested coroutines to work properly.
+
+Consider the following code, where the coroutine, \code{co1}, launches a second coroutine, \code{co2}, within its body. Then within \code{co2}'s body, there are \code{suspend} and \code{break} calls on both \code{co1} and \code{co2}. Pay attention to how this interacts.
+\code{
+val co1 = Coroutine<False,Int> $ fn (co1, x0) :
+   val co2 = Coroutine<False,False> $ fn (co2, y0) :
+      for i in 0 to false do :
+         suspend(co1, i)
+         if i == 5 :
+            println("Breaking from coroutine 2!")
+            break(co2, false)
+   resume(co2, false)
+   -1
+
+while open?(co1) :
+   println(resume(co1, false))
+}
+Compiling and running the above prints out
+\code{
+0
+1
+2
+3
+4
+5
+Breaking from coroutine 2!
+-1
+}
+
+The two nested coroutines are quite confusing. To get a better sense of what's happening, let's rewrite the second coroutine using the special case \code{label} construct.
+\code{
+val co1 = Coroutine<False,Int> $ fn (co1, x0) :
+   label<False> break :
+      for i in 0 to false do :
+         suspend(co1, i)
+         if i == 5 :
+            println("Breaking from coroutine 2!")
+            break(false)
+   -1
+
+while open?(co1) :
+   println(resume(co1, false))
+}
+Compiling and running the above prints out the same message as before.
+
+It is highly unlikely that you will feel the desire to directly launch new coroutines from within other coroutines, as we did here. But this example shows that they nest appropriately and generally \italic{do the right thing}. Thus, for whatever abstractions you build on top of Stanza's targetable coroutine system, you can rest assured that they will recurse and compose correctly. 
+
+\section{Example: Key Listener}
+The following example demonstrates using coroutines to easily implement a key listener that translates individual key presses into events on strings.
+
+Let us define a \code{KeyListener} type, and its fundamental operation.
+\code{
+deftype KeyListener
+defmulti key-pressed (c:Char) -> False
+}
+A \code{KeyListener} object listens to individual key presses from a keyboard and translates them into higher level events. Here is the definition of the constructor function for a \code{KeyListener}.
+\code{
+defn KeyListener (entered: String -> False) -> KeyListener
+}
+\code{KeyListener} takes a callback function called \code{entered} that accepts \code{String} objects. Our \code{KeyListener} translates key presses into calls to \code{entered} on space-separated words. It also supports deleting characters with the backspace key, entering of double-quoted strings, and escaped double-quotes within a double-quoted string. Here is specifically what it has to do.
+\list{
+\item A \code{KeyListener} has an internal buffer for storing characters. When keys corresponding to letters are pressed, they are stored into the internal buffer.
+\item When the backspace key is pressed, the last character is deleted from the internal buffer.
+\item Once a full word is completed (indicated by the spacebar being pressed), the \code{entered} function should be called with the contents of the internal buffer.
+\item If the double quote key is pressed, then this indicates that a string is being started, and all subsequent characters until the next double quote should be stored in the internal buffer. Upon completion of the string, the \code{entered} function should be called with the entire contents of the internal buffer.
+\item During entering of a string, if a backslash character followed by a double quote character is entered, then the double quote character is stored in the internal buffer, and entering of the string continues. If the backslash character is not followed by a double quote then both characters are ignored.
+}
+
+\subsection{Coroutine Framework}
+Here is the basic framework that we will use to ease programming the \code{KeyListener}.
+\code{
+defn KeyListener (entered: String -> False) -> KeyListener :
+   val co = Coroutine<Char,False> $ fn (co, c0) :
+      ;Retrieve the next character
+      defn next-char () :
+         suspend(co, false)
+
+      ...
+
+   new KeyListener :
+      defmethod key-pressed (this, c:Char) :
+         resume(co, c)
+}
+We immediately create a coroutine that accepts characters and sends back dummy values of type \code{False}. Within the coroutine body, the helper function \code{next-char} requests the next character by suspending the coroutine and returning the next character sent back into the coroutine. A new \code{KeyListener} object is returned that calls \code{resume} on the coroutine whenever a key is pressed.
+
+\subsection{Buffer Managing Routines}
+The following definitions within the coroutine body help us manage the \code{KeyListener}'s internal buffer.
+\code{
+;Buffer commands
+val buffer = Vector<Char>()
+defn pop-char () :
+   if not empty?(buffer) :
+      pop(buffer)
+defn add-char (c:Char) :
+   add(buffer, c)
+defn empty-buffer () :
+   entered(string-join(buffer))
+   clear(buffer)
+}
+The buffer is represented as a vector of characters. \code{pop-char} removes the last character in the buffer if possible. \code{add-char} adds the given character to the end of the buffer. \code{empty-buffer} calls the \code{entered} callback with the contents of the buffer, and then clears the buffer.
+
+\subsection{Dispatch Mode}
+The key press parser operates in a number of different modes. The default mode is the dispatch mode, which determines which mode to next enter based on the previously pressed key. 
+\code{\#{
+;Dispatch mode
+defn* parse (c:Char) :
+   if letter?(c) :
+      parse-word(c)
+   else if c == '\"' :
+      parse-string(next-char())
+   else :
+      parse(next-char())
+\#}}
+If a letter key was pressed, then we start parsing a word event. If the double-quote key is pressed, then we start parsing a string event. Otherwise, the key press is ignored.
+
+\subsection{Word Mode}
+The word parsing mode accepts key presses until one word is completed.
+\code{\#{
+;Word parsing mode
+defn* parse-word (c:Char) :
+   if letter?(c) :
+      add-char(c)
+      parse-word(next-char())
+   else if c == '\b' :
+      pop-char()
+      parse-word(next-char())
+   else if (c == ' ') or (c == '\"') :
+      empty-buffer()
+      parse(c)
+   else :
+      parse-word(next-char())
+\#}}
+If the last key pressed was a letter, then that letter is added to the buffer. If the last key was a backspace, then we delete a character from the buffer. If the last key was the spacebar or the double-quote key, then the word is completed. We empty the buffer and then go back to the dispatch mode. All other keys are ignored.
+
+\subsection{String Mode}
+The string parsing mode accepts key presses until another (un-escaped) double-quote key finishes the string.
+\code{\#{
+;String parsing mode
+defn* parse-string (c:Char) :
+   if c == '\"' :
+      empty-buffer()
+      parse(next-char())
+   else if c == '\b' :
+      pop-char()
+      parse-string(next-char())
+   else if c == '\\' :
+      if next-char() == '\"' : add-char('\"')
+      parse-string(next-char())
+   else :
+      add-char(c)
+      parse-string(next-char())
+\#}}
+If the last key pressed was the double-quote key then the string is completed. We empty the buffer and then go back to the dispatch mode. If the last key was a backspace, then we delete a character from the buffer. If the last key was the backslash key, then we add a double-quote to the buffer if the following key is a double-quote. Otherwise both keys are ignored. Finally, all other characters are added to the buffer.
+
+\subsection{Testing the KeyListener}
+Here is the entire \code{KeyListener} constructor function.
+\code{\#{
+defn KeyListener (entered: String -> False) -> KeyListener :
+   val co = Coroutine<Char,False> $ fn (co, c0) :
+      ;Retrieve the next character
+      defn next-char () :
+         suspend(co, false)
+         
+      ;Buffer commands
+      val buffer = Vector<Char>()
+      defn pop-char () :
+         if not empty?(buffer) :
+            pop(buffer)
+      defn add-char (c:Char) :
+         add(buffer, c)
+      defn empty-buffer () :
+         entered(string-join(buffer))
+         clear(buffer)
+
+      ;Dispatch mode
+      defn* parse (c:Char) :
+         if letter?(c) :
+            parse-word(c)
+         else if c == '\"' :
+            parse-string(next-char())
+         else :
+            parse(next-char())
+
+      ;Word parsing mode
+      defn* parse-word (c:Char) :
+         if letter?(c) :
+            add-char(c)
+            parse-word(next-char())
+         else if c == '\b' :
+            pop-char()
+            parse-word(next-char())
+         else if (c == ' ') or (c == '\"') :
+            empty-buffer()
+            parse(c)
+         else :
+            parse-word(next-char())
+
+      ;String parsing mode
+      defn* parse-string (c:Char) :
+         if c == '\"' :
+            empty-buffer()
+            parse(next-char())
+         else if c == '\b' :
+            pop-char()
+            parse-string(next-char())
+         else if c == '\\' :
+            if next-char() == '\"' : add-char('\"')
+            parse-string(next-char())
+         else :
+            add-char(c)
+            parse-string(next-char())
+            
+      ;Launch!
+      parse(c0)
+
+   new KeyListener :
+      defmethod key-pressed (this, c:Char) :
+         resume(co, c)
+\#}}
+
+Let's try it out on some simulated key presses.
+\code{\#{
+defn keys-pressed (kl:KeyListener, cs:Seqable<Char>) :
+   do(key-pressed{kl, _}, cs)
+
+defn main () :
+   val kl = KeyListener $ fn (s) :
+      println("String entered: %_" % [s])
+      
+   ;Test backspace   
+   keys-pressed(kl, "Timom\bn ")
+   
+   ;Test simple word
+   keys-pressed(kl, "and ")
+
+   ;Test backspace against empty buffer
+   keys-pressed(kl, "P\b\b\b\bPumbaa")
+   
+   ;Test unrecognized characters
+   keys-pressed(kl, " a#$!re")
+   
+   ;Test strings with escaped quotes
+   keys-pressed(kl, \<S>"\"good\" friends!!"<S>)
+
+main()
+\#}}
+
+Note that 
+\code{\#{
+\<S>literal !@#$%\|" characters<S>
+\#}}
+is Stanza's syntax for a literal un-escaped string. All characters between the starting \code{<S>} tag and the ending \code{<S>} tag are part of the string. Any tag may be used in place of \code{S}.
+
+Compiling and running the above prints out
+\code{
+String entered: Timon
+String entered: and
+String entered: Pumbaa
+String entered: are
+String entered: "good" friends!!
+}
+
+Our \code{KeyListener} calls the callback function at the correct times and with the correct input! 
+
+The coroutine mechanism allowed us to keep the code fairly straightforward and modular, even though the logic behind the \code{KeyListener} itself is actually quite sophisticated. As an exercise, you may try to implement an equivalent \code{KeyListener} function \italic{without} using the coroutine mechanism to fully appreciate how tedious and error-prone it is.

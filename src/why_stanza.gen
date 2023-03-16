@@ -1,0 +1,514 @@
+### Feature List ####
+
+Optional Type System
+   - It is based on the *subtyping* paradigm.
+      - This is different from most other functional programming
+        languages. (e.g. OCaml, Haskell, F#)
+      - Programmers are familiar and comfortable with subtyping. (From
+        Java, C++, Python, Ruby).
+        
+   - Parametric types (aka. Generics) are supported.
+      - Unlike Google Go.
+      - The captured-type system allows a comfortable and accessible
+        method of dealing with co- and contravariance. (unlike Scala).
+      - It supports *deep* casts. (unlike Dart / Java).
+      
+   - It is non-invasive.
+      - One problem with hybrid dynamic-static type systems is that
+        the static half tends to be invasive.
+      - The danger is that you may start writing the program without
+        using types, but as soon as you add 1 type annotation, the
+        program no longer type checks until you annotate a substantial
+        portion of the program.
+        
+   - It is more than just the ? type.
+      - We want programmers to be able to write unannotated programs
+        and then gradually add in type annotations.
+      - This means that the program will be written according to the
+        style and paradigms of the dynamically-typed languages. And
+        the type system must be well-matched and expressive enough to
+        type *this* program. Programs must be able to be annotated
+        without changing their structure.
+      - For example, here's something that one would reasonably write
+        in a scripting language. What is the type of "y"?
+        
+        val y = 23 when x < 0 else "hello"
+
+        Well, y can be either an integer or a string. In Stanza, y has
+        type Int|String. So designing an optional type system is about
+        more than just adding the ? type. It requires that common
+        dynamically-typed styles be typable. For this example, that
+        means having supporting the (unfortunately named) *untagged*
+        union types.
+      - As an aside, the support for untagged union types also allows
+        us to cleanly handle *null* values, unlike Java, Scala, and
+        Dart. Simply put, there is no *null* value in Stanza. Suppose
+        that a variable x can be either a string or "nothing". Then it
+        is declared in Stanza simply as
+
+        var x: String|False = false
+
+        This explicit annotation is then checked by Stanza to ensure
+        that the user is aware that x may not actually be a
+        String. This solves the problem famous dubbed "Hoare's
+        billion-dollar mistake".
+      - Here's another thing that one would reasonably write in a
+        scripting language.
+        
+        val xs = Array<Int|String>(100)
+        
+        ...
+        
+        for i in 0 to length(xs) do :
+           if xs[i] is String :
+              xs[i] = length(xs[i] as String)
+
+        sum(xs as Array<Int>)
+
+        The user originally created xs to hold integers and strings,
+        and then later replaces all the strings with their
+        lengths. Now that there's only integers left in the array, he
+        wants to calculate the sum of all of them. So he asserts that
+        xs is an array of Ints and calls sum.
+        
+        This is an example of a *deep* cast, and is not possible in
+        most other programming languages, e.g. Java / C++. This
+        includes the optionally-typed Dart language.
+
+Decorated S-Expression Macro System
+   - The Lisp language is famous for its easy support for writing
+     powerful macros. It is primarily easy because of the obvious
+     translation from the surface syntax to the datastructure that
+     needs to be manipulated by the macro. This is in contrast to
+     something like Python, where one needs to first learn the
+     AST datastructure and the mapping from characters to the
+     datastructure.
+     
+   - The downside to Lisp is that it is notorious for having a very
+     ugly syntax that is difficult to read.
+     
+   - Lisp has a small number of "shorthands". For example, the
+   
+        'x is shorthand for (quote x)
+        `x is shorthand for (quasiquote x)
+        ,x is shorthand for (unquote x)
+        
+     We extend Lisp's s-expression syntax with a very small number of
+     carefully chosen shorthands.
+     
+        f(x) is shorthand for f (@do x)
+        
+        f :     
+           x      is shorthand for f : (x y)
+           y
+           
+     This, in combination with the macro system, is enough to provide
+     very natural-looking and comfortable syntax. Stanza's syntax has
+     repeatedly been praised as being very readable and clean.
+     
+   - Stanza is a compiled language, and uses a staged-compilation
+     approach to its macros. This avoids the problems of the
+     "eval-when" and "expand-when" issues associated with compiling
+     Lisp programs.
+     
+   - As a demonstration of its power, just as in Lisp, the majority of
+     Stanza's constructs are written as simple macros that translate
+     to core forms.
+
+Declarative Parser System
+   - Stanza has a declarative parser system for helping to write
+     sophisticated macros. It is built upon an extended version of
+     PEGs (Parsing Expression Grammars) called structured PEGs that
+     supports hierarchical s-expressions. It also supports direct left
+     recursion, semantic actions, and semantic predicates.
+     
+   - It has a simple mechanism for adding high quality error messages
+     for reporting mistakes in parsing.
+
+Multimethod-Based Object System
+   - One of the greatest strengths of functional programming has been
+     the emphasis and ease of designing *layered* software
+     architectures. Software is architected as a stack of
+     *layers*. Each layer is comprised of a collection of functions,
+     with each layer being more abstract than the one beneath it. A
+     layer is only allowed to call functions from the immediate layer
+     beneath it. This horizontally integrated architecture stands in
+     contrast to the more vertical architectures that emphasize from
+     class-based object oriented languages such as Java and C++.
+     
+   - Stanza's object system is designed to blend with a functional
+     programming architecture, and is built around the old concept of
+     multimethods first popularized by Common Lisp.
+
+   - A multimethod is simply a separation of a function's declaration
+     and its implementation(s). The declaration in Stanza is called
+     the "multi", and looks like the following:
+     
+     defmulti intersects (a:Shape, b:Shape) -> True|False
+
+     The multi contains the name and type signature of the
+     function. Stanza then allows the user to attach multiple
+     implementations as "methods".
+
+     defmethod intersects (a:Circle, b:Circle) :
+        distance(center(a), center(b)) < radius(a) + radius(b)
+
+     defmethod intersects (a:Circle, b:Square) :
+        ...
+
+     Note that users never calls a method directly. They can only ever
+     call the multi and then Stanza will dispatch the call to the
+     appropriate implementation based on the types of the arguments.
+
+   - The biggest advantage of a multimethod based object system is
+     that methods no longer live inside a class. Methods are free to
+     be declared in any package in any file. Users may even extend the
+     functionality of an existing type with additional functions and
+     methods.
+     
+     This allows for tremendous flexibility for architecting software,
+     and also obviates the need for additional language mechanisms for
+     enabling open-ended classes, such as Ruby's mixin system or
+     Scala's trait system.
+
+     In addition, many of the traditional problems associated with
+     multiple-inheritance such as the "Diamond Inheritance Problem"
+     do not manifest in a multimethod based setting.
+     
+   - The first advantage of a multimethod based object system is that
+     it blends seamlessly with the functional programming style. There
+     is nothing special about a multi. Other than the ability to
+     attach methods to it, a multi behaves exactly like a
+     function. This means that it can be called as a function, and it
+     can also be passed around as a function. The following
+     demonstrates retrieving a list of all the names of each animal.
+     
+     defn names (animals:List<Animal>) :
+        map(name, animals)
+
+   - The second advantage of a multimethod based object system is that
+     it directly and intuitively supports multiple argument
+     dispatch. In class-based object systems, dynamic dispatch is
+     limited to the *receiver* object. The following example is how
+     *intersects* may be called in Java.
+
+        a.intersects(b)
+
+     Note that the specific implementation that is called may depend
+     on the type of *a*, but it does not depend on the type of
+     *b*. This requires developers to invent sophisticated patterns
+     (like the Double Dispatch pattern) to write methods that do
+     different things depending on the types of more than a single
+     argument.
+
+     In the Stanza implementation of intersects, there is no
+     particular argument that is handled specially. The types of every
+     argument is taken into consideration when calculating which
+     method to dispatch to.
+
+Targetable Coroutine System
+   - Scheme's continuation mechanism allows for advanced developers to
+     create sophisticated and specialized control flow constructs that
+     are tuned for their applications. Examples of these include
+     coordinated concurrency systems for game programming,
+     backtracking constructs for dataflow and constraint
+     solvers, and resumable exceptions for robust error handling. In
+     fact, continuations are so general that its the only control flow
+     construct that Scheme has! Traditional constructs such as
+     exceptions, return statements, break and continue statements, are
+     implemented simply using continuations. However, continuations
+     have the disadvantage of being notoriously difficult to
+     understand, does not interact well with imperative code, and are
+     very difficult to optimize.
+     
+   - Coroutines are an old control flow construct for imperative
+     languages, allowing for a piece of code to save its execution
+     state and later be resumed from the same state. However, existing
+     languages have only ever treated them as a special-purpose
+     control flow construct; just one among many. Stanza has an
+     extended coroutine mechanism called *targetable* coroutines,
+     which allows users to explicitly specify which coroutine to yield
+     to. This extra addition gives Stanza's coroutine mechanism the
+     power to be a general control flow construct and subsume the
+     others. In the same sense that call-cc is Scheme's only control
+     flow construct, targetable coroutines are Stanza's only control
+     flow construct.
+     
+   - Stanza's targetable coroutine construct has expressive power
+     equivalent to labeled delimited one-shot continuations. Unlike
+     full continuations, Stanza's coroutines are well behaved in an
+     imperative context, and also efficiently implemented.
+
+   - Because Stanza's coroutine system is a general control flow
+     construct, we've been able to provide simpler versions of many
+     common constructs as compared to other languages. Stanza has no
+     built-in loop construct, for example. The following code:
+
+     for i in 0 to 10 do :
+        println("i = ")
+        println(i)
+
+     is implemented as a simple macro and is equivalent to
+
+     do(
+        fn (i) :
+           println("i = ")
+           println(i)
+        0 to 10)
+
+     i.e. a simple call to a higher-order function. This is possible
+     in Stanza because we have no need to define a complicated
+     iteration protocol. If the user needs to exit from the loop
+     early, s/he can simple launch it inside a coroutine.
+
+     label break :
+        for i in 0 to 10 do :
+           break() when i == 5
+           println("i = ")
+           println(i)
+
+LoStanza System Programming Sub-Language
+   - LoStanza is a small sub-language for programming system-level
+     functionality in Stanza. It allows for direct memory management
+     and interfacing with external libraries. One of the most
+     difficult aspects of interfacing between a garbage-collected and
+     non-garbage-collected language is the registration of the gc
+     roots. The LoStanza sub-language can be thought of as a
+     low-level language with semantics similar to C but with a type
+     system that allows for proper handling of gc roots.
+     
+   - Much of Stanza's low-level utilities are programmed in
+     LoStanza. This includes the input/output functions in the core
+     library, and the garbage collector.
+
+High Performance
+   - There are three concepts that are taken advantage of in order to
+     provide good performance for Stanza programs. The first is that
+     the semantics of Stanza are defined very carefully to allow for
+     objects to be inlined wherever possible. Using the nomenclature
+     of other languages, every object is a "value" object in Stanza.
+     
+     These semantics allow Stanza's optimizer to unbox objects to
+     remove layers of indirection in a way that is transparent to the
+     user.
+
+   - The second performance advantage comes from the fact that there
+     is much more type information available in a Stanza program than
+     there is in a dynamically-typed language. This allows for the
+     optimizer to make aggressive decisions about inlining and object
+     layout. Stanza also does not require a just-in-time compiler and
+     virtual machine to provide good performance.
+
+   - The third performance advantage comes from a pragmatic approach
+     to defining the semantics of errors. Stanza has a concept of
+     "fatal error". A fatal error is an unrecoverable error that
+     immediately causes the program to halt. It is used to enforce
+     pre- and post- conditions, invariant assertions, and sanity
+     checks. A "correct" program is defined to be one that does not
+     contain any fatal errors.
+     
+     Stanza's most aggressive optimizer assumes that the program is
+     correct, and uses this information to make aggressive code
+     transformations and eliminate checks that are not possible in
+     other languages.
+     
+     We are hopeful that the fatal error semantics of Stanza will
+     allow programs to eventually approach or exceed the speed of C. C
+     is fast because there is no computational effort wasted on safety
+     checks. Array bounds are not checked for example. Stanza's fatal
+     error semantics allows its most aggressive optimization setting
+     to also elide bounds checking because it is allowed to assume
+     that programs are correct. Despite the aggressive optimization,
+     Stanza remains an easy language to develop in because everything
+     is checked in the standard semantics. If the unoptimized program
+     runs to completion without failing with a fatal error, then the
+     optimized program is guaranteed to complete with the same result.
+
+
+### Why Stanza? ###
+
+How did it start?
+
+Who is the target audience?
+
+Why did you invent it?
+
+What problems does Stanza solve?
+
+Why aren't the current languages good enough?
+
+What languages inspired it?
+
+What programs do you write in Stanza?
+
+What languages do you currently have to choose from?
+
+What are the problems that you run into for software?
+
+What is programming-in-the-small and programming-in-the-large?
+
+What is Stanza good for now?
+
+What is left for Stanza?
+
+How hard is it to learn?
+
+What have you used Stanza for?
+
+How do I learn Stanza?
+
+What features does Stanza have?
+
+   There are five technical pillars around which the rest of the
+   Stanza language was designed.
+   
+      - The optional type system
+      - The targetable coroutine system
+      - The multimethod based object system
+      - The decorated s-expression macro system
+      - The LoStanza system programming sub-language
+      
+   The design of each pillar has taken multiple years of development,
+   and we put a lot of care into ensuring that they individually have
+   consistent and useful semantics, but more importantly, that they
+   are well-behaved with respect to each other and augment each
+   other's capabilities. The rich interaction between these pillars is
+   what gives Stanza its expressivity while remaining easy to learn
+   and use. No single pillar can be removed without fundamentally
+   breaking the design of Stanza.   
+
+For each feature, what other language has them? What is the difference
+between how Stanza does it and how they do it?
+
+
+
+# Optional Type System #
+
+- Introduction
+
+  - Not all syntactically-correct programs are meaningful. 
+
+  - Type systems are important.
+
+- The original goal of Stanza's type system: Solve problems with
+  both dynamically-typed and statically-typed languages.
+
+  - Mainstream programming languages are divided into two categories:
+    dynamically-typed or statically-typed languages.
+    - Examples
+    
+  - They each have pros and cons.
+
+  - Choose the most appropriate paradigm for your application.
+
+  - A single application might require both paradigms.
+
+  - Project management solution. Switch languages in the middle.
+
+  - What's the problem with switching languages?
+
+  - Our goal with Stanza's optional typing system is to be more
+    productive than both paradigms.
+
+- Optional Typing
+
+  - Just talked about dynamic vs static typing. Listed the problems
+    for each. Now talk about optional typing, and how it avoids those
+    problems. 
+
+  - What is optional typing? What is the work flow? What is the
+    ultimate goal/feeling?
+
+  - Perspective. Dynamic and Static typing are two extremes of
+    optional typing.
+
+  - Why is it important to be gradual?
+
+  - How does it solve the problems mentioned earlier? 
+
+- What are some difficulties that have to be avoided or solved?
+
+  - Non-Invasive
+
+  - Accomodate dynamic programming style
+
+  - Parametric types
+
+- Stanza is fundamentally based on the subtyping paradigm. What is
+  subtyping? 
+
+  - Closer to how dynamic code is structured.
+
+- How do we extend subtyping to account for the optional typing
+  system?
+
+  - The ? type
+
+- More than just the ? type. It has to support programming in the
+  dynamic style.
+
+- How does it compare to other languages?
+
+- Implications for Safety
+
+- Implications for Performance
+
+- Experiences so Far
+
+==================================================
+
+- Julia has no type errors upfront *at all*.
+
+- two to three months is too long.
+
+- What about interfacing to high performance kernels?
+
+- Example of writing untyped code but using a typed library.
+
+- Types are also part of documentation. Systematic, and
+  compiler-checked, specifications.
+
+- What is the type system doing? What is it proving? And when is it
+  allowed to fail? What if something could or could not work? Does it
+  allow it?
+
+- Talk about the natural style that people fall into. Types on
+  everything.
+
+- Deep casts, contracts have to be checked at runtime.
+
+- Optimization opportunities. The types give you opportunities, but
+  the lack of types as structure also.
+
+- How easy is it to understand the type errors?
+
+- If you typed the entire program can you get rid of all type checks?
+  What does Dylan do?
+
+- Everything is very fluidly typed. Introduce types and operations as
+  part of architecting a program. You're not going out of your way to
+  satisfy a paradigm.
+
+- Abstract. Provide the goals and achievements of the essay. What are
+  the key points? If Jonathan had ten minutes to sell the language,
+  what would he say?
+
+- Think about the arguments against you. Consider Philip Wadler, and
+  Gerry Sussman. What would they say? e.g. for Gerry: always adding
+  value incrementally. Wadler: he wants proofs and guarantees.
+
+- How much work is it to type it? How hard is it to add types? How
+  hard is it to interpret failures? How hard is it to know how to fix
+  a failure?
+
+- Critically: Yes you have a choice. It's not one or the other.
+
+- What do you give up to have this type system?
+
+- Don't prove the wrong program. We're not trying to win an award for
+  type systems.
+
+========================================
+
+- Stanza
+- Hone the topics.

@@ -1,0 +1,1418 @@
+\chapter{Stanza's Macro System}{
+This chapter teaches you about Stanza's macro system: what macros are, how to write your own, and some examples of using them. (This chapter is still a work in progress - May 31, 2022)
+}
+
+(This chapter is still a work in progress - May 31, 2022)
+
+This chapter teaches you about Stanza's macro system: what macros are, how to write your own, and some examples of using them.
+
+Stanza's macro system results from the combination of three separate concepts and subsystems:
+\list{
+\item an s-expression-based programmatic code transformation system,
+\item an extensible grammar system, and
+\item a template-based code generation utility.
+}
+
+\section{What Is a Macro?}
+A macro is a syntactic shorthand for some longer piece of code. Stanza's core design relies heavily upon macros, and we have already seen many of them.
+
+As a simple example, the following shows off the \code{while} macro that is included with Stanza's core library:
+\code{
+var counter:Int = 0
+while counter < 10 :
+  println("counter = %_" % [counter])
+  counter = counter + 1
+}
+
+If you don't want to use the \code{while} loop, you can also type the following instead:
+\code{
+var counter:Int = 0
+defn* loop () :
+  if counter < 10 :
+    println("counter = %_" % [counter])
+    counter = counter + 1
+    loop()
+loop()
+}
+It would work just the same. It's just slightly more verbose.
+
+Here is another example. This is the syntax that we typically use to call the \code{do} function.
+\code{
+for i in 0 to 10 do :
+  println("This is inside the loop.")
+  println("i is equal to %_" % [i])
+}
+
+But, similarly, you could also type the following instead:
+\code{
+do(
+  fn (i) :
+    println("This is inside the loop.")
+    println("i is equal to %_" % [i])
+  0 to 10)
+}
+It looks slightly uglier, but it works just the same. 
+
+The key point is that macros are just a syntactic abbreviation. A user is always free to choose not to use a macro if they are willing to type out the longer form of the code instead.
+
+\section{Defining and Using Your First Macro}
+
+When debugging, it is common to write code that looks like this:
+\code{
+println("DEBUG: x = %~" % [x])
+}
+It prints out the current value of a variable.
+
+Let's write a macro that will allow us to type this instead:
+\code{
+PROBE(x)
+}
+and have it automatically expand into the code above.
+
+\subsection{Creating the Macro File}
+Create a new file called \code{debugmacros.stanza} containing the following contents:
+\code{
+defpackage debugmacros :
+  import core
+  import collections
+  import stz/core-macros
+
+defsyntax mydebugmacros :
+  import exp4 from core
+
+  defrule exp4 = (PROBE(?myvariable)) :
+    val format-string = to-string("DEBUG: %_ = %%~" % [name(unwrap-token(myvariable))])
+    val form = qquote(println(~ format-string % [~ myvariable]))
+    parse-syntax[core / #exp](form)
+}
+
+This file defines a new \italic{syntax package} called \code{mydebugmacros}, which contains the definition of a new macro called \code{PROBE}.
+
+\subsection{Extending the Compiler}
+In order to use the new macro definition, we need to first \italic{extend Stanza} with the new macro definitions.
+
+Open your terminal and type in the following:
+\code{
+stanza extend debugmacros.stanza -o myextendedstanza
+}
+
+This will result in a new Stanza compiler called \code{myextendedstanza} that now supports the new syntax.
+
+\subsection{Using Your New Macro}
+Create a new file called \code{trymacros.stanza} containing the following contents:
+\code{
+#use-added-syntax(mydebugmacros)
+defpackage trymacros :
+  import core
+  import collections
+
+defn main () :
+  val x = 10
+  val y = "Hello world"
+  val z = x * 10
+  PROBE(x)
+  PROBE(y)
+  PROBE(z)
+
+main()
+}
+
+And use your new extended compiler to compile and run it:
+\code{
+./myextendedstanza trymacros.stanza -o trymacros
+./trymacros
+}
+
+It should print out:
+\code{
+DEBUG: x = 10
+DEBUG: y = "Hello world"
+DEBUG: z = 100
+}
+
+That's a useful utility! Notice that this abbreviation is something that could only be written as a macro. It is not possible to write a function that behaves like \code{PROBE}.
+
+\section{Exploring Further}
+
+Our \code{debugmacros.stanza} file introduces a number of new concepts: \code{defsyntax}, \code{defrule}, \code{parse-syntax}. Let's explore each in turn.
+
+\subsection{Programmatic Code Transformations}
+
+The body of the \code{defrule} construct is allowed to contain arbitrary Stanza code.
+
+Add the following prints to the code:
+\code{\#{
+defpackage debugmacros :
+  import core
+  import collections
+  import stz/core-macros
+
+defsyntax mydebugmacros :
+  import exp4 from core
+
+  defrule exp4 = (PROBE(?myvariable)) :
+    println("Implementation of PROBE macro.")
+    println("myvariable = %~" % [myvariable])
+
+    val format-string = to-string("DEBUG: %_ = %%~" % [name(unwrap-token(myvariable))])
+    println("format-string = %~" % [format-string])
+
+    val form = qquote(println(~ format-string % [~ myvariable]))
+    println("form = %~" % [form])
+
+    val result = parse-syntax[core / #exp](form)
+    println("result = %~" % [result])
+    println("\n")
+
+    result
+\#}}
+
+Now rebuild the extended compiler, and use it to compile our \code{trymacros.stanza} file again.
+\code{
+./myextendedstanza trymacros.stanza -o trymacros
+}
+
+You should see, \italic{during compilation}, the following messages being printed out:
+\code{
+Implementation of PROBE macro.
+myvariable = x
+format-string = "DEBUG: x = %~"
+form = (println (@do "DEBUG: x = %~" % (@tuple x)))
+result = ($do println ($do modulo "DEBUG: x = %~" ($tuple x)))
+
+
+Implementation of PROBE macro.
+myvariable = y
+format-string = "DEBUG: y = %~"
+form = (println (@do "DEBUG: y = %~" % (@tuple y)))
+result = ($do println ($do modulo "DEBUG: y = %~" ($tuple y)))
+
+
+Implementation of PROBE macro.
+myvariable = z
+format-string = "DEBUG: z = %~"
+form = (println (@do "DEBUG: z = %~" % (@tuple z)))
+result = ($do println ($do modulo "DEBUG: z = %~" ($tuple z)))
+}
+
+Notice that we haven't yet ran the \code{trymacros} executable yet. These messages are printed out during the \italic{compilation} of \code{trymacros.stanza}. Macros execute at compilation-time. 
+
+Let's focus on the messages printed out just for the expression \code{PROBE(x)}. 
+
+The line
+\code{
+defrule exp4 = (PROBE(?myvariable))
+}
+defines a new syntax rule for Stanza expressions. The \code{PROBE(?myvariable)} is the definition of the \italic{pattern}. In this case, our pattern matches any code that looks like \code{PROBE(...)}, where a single s-expression is allowed within the ellipsis. 
+
+The question mark in front of \code{?myvariable} indicates that it is a \italic{pattern variable}. Within the body of the \code{defrule}, \code{myvariable} will refer to whatever s-expression the user provided within \code{PROBE(...)}. For the usage \code{PROBE(x)}, \code{myvariable} will take on the symbol \code{x}. 
+
+This can be observed in the message:
+\code{
+myvariable = x
+}
+
+Next, we use some basic string manipulation to construct the format string. The message
+\code{
+format-string = "DEBUG: x = %~"
+}
+shows us the final constructed string.
+
+Finally, we use the \code{qquote} utility to construct an s-expression containing the code that we want the macro to expand into. This results in the form:
+\code{
+form = (println (@do "DEBUG: x = %~" % (@tuple x)))
+}
+
+Recall that the \code{@do} and \code{@tuple} symbols are inserted by the lexer. If we write the above form using the same notation that the lexer uses, it becomes:
+\code{
+println("DEBUG: x = %~" % [x])
+}
+which is exactly the final code that we want the macro to expand into.
+
+The final step is for satisfying the requirements of the Stanza macro system. Each Stanza macro must return the final code to execute in terms of fully-expanded \italic{core forms}. To do that we call \code{parse-syntax} to continue expanding any remaining macros in the code, and the fully-expanded form is then shown in the message:
+\code{
+result = ($do println ($do modulo "DEBUG: x = %~" ($tuple x)))
+}
+
+\subsection{Bugs in Macros}
+
+Our macro implementation actually contains some errors in its implementation. Let's see what happens when it crashes.
+
+Try changing the \code{trymacros.stanza} file to the following:
+
+\code{
+#use-added-syntax(mydebugmacros)
+defpackage trymacros :
+  import core
+  import collections
+
+defn main () :
+  val x = 10
+  val y = "Hello world"
+  val z = x * 10
+  PROBE((x + z))
+
+main()
+}
+
+And try compiling it again. 
+\code{
+./myextendedstanza trymacros.stanza -o trymacros
+}
+
+Our system crashes with the following printout:
+\code{
+Implementation of PROBE macro.
+myvariable = (x + z)
+FATAL ERROR: No appropriate branch for arguments of type (FullList).
+  in core/print-stack-trace
+    at core/core.stanza:329.14
+  in core/print-stack-trace
+    at core/core.stanza:335.2
+  in core/fatal
+    at core/core.stanza:382.2
+  ...
+}
+
+This is caused by the call to:
+\code{
+name(unwrap-token(myvariable))
+} 
+\code{name} is a function that can only be called on \code{Symbol} objects, but in this case \code{myvariable} is a \code{List}.
+
+So be cautious. When a macro crashes, it causes the entire compiler to crash. 
+
+We can fix this by adding the following check:
+\code{\#{
+defrule exp4 = (PROBE(?myvariable)) :
+  println("Implementation of PROBE macro.")
+  println("myvariable = %~" % [myvariable])
+
+  ;Check that PROBE is called correctly.
+  if unwrap-token(myvariable) is-not Symbol :
+    throw(Exception("%_: Incorrect usage of PROBE(x). \
+                     The argument to PROBE must be a symbol." % [
+                     closest-info()]))
+
+  val format-string = to-string("DEBUG: %_ = %%~" % [name(unwrap-token(myvariable))])
+  println("format-string = %~" % [format-string])
+
+  val form = qquote(println(~ format-string % [~ myvariable]))
+  println("form = %~" % [form])
+
+  val result = parse-syntax[core / #exp](form)
+  println("result = %~" % [result])
+  println("\n")
+
+  result
+\#}}
+
+With this additional guard, the system will print out the following. 
+\code{
+[WORK IN PROGRESS]
+}
+
+\subsection{Building an Optimized Compiler}
+
+We have been using the following command to extend the compiler:
+\code{
+stanza extend debugmacros.stanza -o myextendedstanza
+}
+
+You might have noticed that the extended compiler runs a bit slower than you're used to. This is because the extended compiler is compiled without optimizations, while the standard Stanza compiler is compiled in optimized mode.
+
+When you are confident in the implementation of your macros, you can compile an optimized version of the compiler using this command:
+\code{
+stanza extend debugmacros.stanza -o myextendedstanza -optimize
+}
+
+Be cautious of using this before your macros have been fully debugged though. Optimized mode removes many safety checks for detecting errors early, and an incorrect program may behave strangely.
+
+\section{The DefSyntax System: A Small Experiment Framework}
+
+The \code{defsyntax} system is Stanza's built-in parsing mechanism for s-expressions. It is both the underlying system used by the macro system for extending the syntax of the language, and it can also be used as a standalone utility.
+
+To allow us to explore the \code{defsyntax} system we will build a small framework that allows us to quickly try out different syntax definitions. 
+
+\subsection{A Small Syntax}
+Create a new directory and create a file called \code{myparser.stanza} containing:
+\code{
+defpackage myparser :
+  import core
+  import collections
+
+defsyntax my-experimental-language :
+
+  public defproduction sentence: String
+  
+  defrule sentence = (the quick red fox) :
+    "Sentence about foxes"
+    
+  defrule sentence = (the lazy brown dog) :
+    "Sentence about dogs"
+
+  defrule sentence = (the 3 "friendly" lions) :
+    "Sentence about lions"
+}
+This file contains the definition of the \code{my-experimental-language} syntax. 
+
+\subsection{Parsing Using the Syntax}
+Now create another file called \code{test-myparser.stanza} containing:
+\code{\#{
+defpackage test-myparser :
+  import core
+  import collections
+  import reader
+  import myparser
+
+defn main () :
+  val forms = read-file("test-input.txt")
+  println("PARSING:\n%_\n\n" % [forms])
+
+  try :
+    val parsed = parse-syntax[my-experimental-language / #sentence](forms)
+    println("RESULT:\n%_\n\n" % [parsed])
+  catch (e:Exception) :
+    println("Could not parse forms.")
+    println(e)
+
+main()
+\#}}
+This file reads in the s-expressions contained within a text file and asks the parsing system to interpret the forms as a \code{sentence} as defined in the \code{my-experimental-language} syntax. 
+
+\subsection{Initial Experiments}
+Now create our input test file, \code{test-input.txt}, containing:
+\code{
+the lazy brown dog
+}
+
+And run our system like this:
+\code{
+stanza run myparser.stanza test-myparser.stanza
+}
+
+You should see the following printed out:
+\code{
+[WORK IN PROGRESS]
+}
+
+We can try out the other recognized sentences too:
+If we fill \code{test-input.txt} with:
+\code{
+the quick red fox
+}
+then the program prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+If we fill \code{test-input.txt} with:
+\code{
+the 3 "friendly" lions
+}
+then the program prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+If we fill \code{test-input.txt} with an unrecognized sentence:
+\code{
+the quick blue fox
+}
+then the program prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+\section{The Pattern Language}
+
+Using the above framework, we can now learn about the different patterns that the \code{defrule} construct supports. 
+
+\subsection{Literals}
+
+Our patterns so far consists of "literals". These must match exactly to constitute a match. 
+
+The literal pattern:
+\code{
+quick
+}
+matches against the s-expression:
+\code{
+quick
+}
+
+The literal pattern:
+\code{
+3
+}
+matches against the s-expression:
+\code{
+3
+}
+
+The literal pattern:
+\code{
+"friendly"
+}
+matches against the s-expression:
+\code{
+"friendly"
+}
+It does \italic{not} match against the s-expression:
+\code{
+friendly
+}
+
+The literal pattern:
+\code{
+3L
+}
+matches against:
+\code{
+3L
+}
+It does \italic{not} match against the s-expression:
+\code{
+3
+}
+
+\subsection{Wildcards}
+
+The wildcard pattern \code{_} matches against any single s-expression.
+
+The pattern:
+\code{
+_
+}
+matches against all of the following s-expressions:
+\code{
+3
+"friendly"
+(a b c)
+3L
+Pumbaa
+}
+Note that \code{(a b c)} is a single s-expression.
+
+\subsection{Concatenation}
+
+Multiple patterns can be concatenated together to form a longer pattern.
+
+The pattern:
+\code{
+a b
+}
+matches against the following s-expressions:
+\code{
+a b
+}
+
+The pattern:
+\code{
+a _ _ x
+}
+matches against all of the following s-expressions:
+\code{
+a y z x
+a 1 2 x
+a (1 2 3) (1 2 3) x
+}
+
+\subsection{Lists}
+
+The list pattern \code{(...)} matches against list s-expressions.
+
+The pattern:
+\code{
+()
+}
+matches against the following s-expression:
+\code{
+()
+}
+
+The pattern:
+\code{
+(a)
+}
+matches against the following s-expression:
+\code{
+(a)
+}
+
+The pattern:
+\code{
+(a 3 "x")
+}
+matches against the following s-expression:
+\code{
+(a 3 "x")
+}
+
+The pattern:
+\code{
+(a 3 (y))
+}
+matches against the following s-expression:
+\code{
+(a 3 (y))
+}
+
+The pattern:
+\code{
+(a _ (_ y))
+}
+matches against all of the following s-expressions:
+\code{
+(a b (x y))
+(a 3 ("hello" y))
+(a "world (x y))
+(a (x y z) ((x y z) y))
+}
+
+\subsection{Ellipsis}
+
+An ellipsis pattern matches zero or more occurrences of a single pattern.
+
+The pattern:
+\code{
+a ...
+}
+matches against all the following s-expressions:
+\code{
+a
+a a
+a a a a
+a a a a a a a a a
+}
+It even matches against the empty s-expression:
+\code{
+
+}
+
+The pattern:
+\code{
+3 ...
+}
+matches against all of the following s-expressions:
+\code{
+3
+3 3
+3 3 3 3
+3 3 3 3 3 3 3 3 3
+}
+
+The pattern:
+\code{
+_ ...
+}
+matches against all of the following s-expressions:
+\code{
+a
+a a a
+x y z w
+x y (1 2 3) (1 2 3)
+() () () ()
+}
+And, like any ellipsis pattern, it matches against the empty s-expression:
+\code{
+
+}
+So effectively, the pattern \code{_ ...} can match against anything at all.
+
+The pattern:
+\code{
+(x _ z) ...
+}
+matches against all of the following s-expressions:
+\code{
+(x y z)
+(x y z) (x w z) (x h z)
+(x 0 z) (x 1 z) (x 2 z)
+(x () z) (x (0) z) (x (0 0) z)
+}
+
+\subsection{Splice-Ellipsis}
+
+A "splice ellipsis" pattern can only be used following a list pattern. It is similar to the normal ellipsis pattern in that it matches zero or more occurrences of the pattern, but it applies to all subpatterns with the list. 
+
+The pattern:
+\code{
+(x y) @...
+}
+matches against all the following s-expressions:
+\code{
+x y
+x y x y
+x y x y x y x y
+}
+It does \italic{not} match against the s-expressions:
+\code{
+x y x
+}
+It does \italic{not} match against the s-expression:
+\code{
+(x y)
+}
+
+The pattern:
+\code{
+(x _ z) @...
+}
+matches against all the following s-expressions:
+\code{
+x 0 z
+x 0 z x 1 z x 2 z x 3 z
+x () z x (0) z x (0 0) z x (0 0 0) z
+}
+
+\subsection{Examples of Combining Patterns}
+
+The list and ellipsis patterns are very powerful, and can be combined to form very expressive patterns. Here are some examples.
+
+The pattern:
+\code{
+(x y ...) @...
+}
+matches against all of the following s-expressions:
+\code{
+x
+x x
+x x x x
+x y
+x y y y
+x y y x y y y x y y y y y
+}
+
+The pattern:
+\code{
+begin ((_ . _) @...) ... end
+}
+matches against all of the following s-expressions:
+\code{
+begin (x . int) end
+begin (x . int y . string) end
+begin (x . int y . string w . int) end
+begin (x . int y . string w . int) (x . int) (x . string) end
+}
+
+\subsection{Escaping}
+
+Most symbols that appear in a pattern, e.g. \code{myname}, \code{myconstruct}, \code{x}, \code{y}, \code{z}, etc. are interpreted as simple literal patterns. There are a small number of special symbols that have special meanings, such as \code{...} and \code{@...}.
+
+So what is the pattern that would actually match against the s-expression: 
+\code{
+a ... @... b
+}
+
+In this case, use the "escape" operator, code{~}, to specify that the next s-expression in a pattern should be interpreted as a simple literal. 
+
+The pattern:
+\code{
+a ~ ... ~ @... b
+}
+matches against the s-expressions:
+\code{
+a ... @... b
+}
+
+The pattern:
+\code{
+a ~ ~ b
+}
+matches against the s-expressions:
+\code{
+a ~ b
+}
+
+\subsection{Understanding the Lexer Shorthands}
+
+To make writing code convenient and increase readability, Stanza's lexer automatically provides a small set of abbreviations. These abbreviations are fixed and cannot be modified by the user:
+
+\code{\#{
+{x}          is an abbreviation for          (@afn x)
+
+[x]          is an abbreviation for          (@tuple x)
+
+f(x)         is an abbreviation for          f (@do x)
+
+f{x}         is an abbreviation for          f (@do-afn x)
+
+f[x]         is an abbreviation for          f (@get x)
+
+f<x>         is an abbreviation for          f (@of x)
+
+?x           is an abbreviation for          (@cap x)
+
+`sexp        is an abbreviation for          (@quote sexp)
+
+a b c :      is an abbreviation for          a b c : (d e f)
+  d e f
+\#}}
+
+Curly brackets (\code{\%{\%}}) expand to a list with the \code{@afn} symbol as its first item. Square braces (\code{[]}) expand to a list with the \code{@tuple} symbol as its first item. An s-expression followed immediately by an opening parenthesis (\code{(}) inserts the \code{@do} symbol as the first item in the following list. An s-expression followed immediately by an opening curly bracket (\code{\%{}) inserts the \code{@do-afn} symbol as the first item in the following list. An s-expression followed immediately by a square brace (\code{[}) inserts the \code{@get} symbol as the first item in the following list. An s-expression followed immediately by an opening angle bracket (\code{<}) inserts the \code{@of} symbol as the first item in the following list. A question mark followed immediately by a symbol expands to a list with the \code{@cap} symbol as its first item. A backquote followed by an s-expression expands to a list with the \code{@quote} symbol as its first item. A line ending colon automatically wraps the next indented block in a list.
+
+Commas:
+\code{
+(x, y, z)
+}
+are treated identically to whitespace, and is an abbreviation for:
+\code{
+(x y z)
+}
+
+These abbreviations need to be taken into consideration when writing patterns. 
+
+As an example, the pattern:
+\code{
+(@tuple _ ...)
+}
+matches against all of the following s-expressions:
+\code{
+(@tuple)
+(@tuple x)
+(@tuple x y z z z)
+[]
+[x]
+[x y z z z]
+[x, y, z, z, z]
+}
+
+The pattern:
+\code{
+plus (@do _ _)
+}
+matches against all of the following s-expressions:
+\code{
+plus (@do x y)
+plus (@do 1 2)
+plus(x y)
+plus(1 2)
+plus(x, y)
+plus(1, 2)
+}
+
+The pattern:
+\code{
+while x : (println)
+}
+matches against the following s-expressions:
+\code{
+while x : (println)
+}
+and it matches against these s-expressions:
+\code{
+while x :
+  println
+}
+but it does \italic{not} match against these s-expressions:
+\code{
+while x : println
+}
+
+\subsection{Patterns with Lexer Shorthands}
+
+Note that the lexer shorthands apply identically to patterns as well. 
+
+Thus the pattern:
+\code{
+[_ ...]
+}
+is identical to the pattern:
+\code{
+(@tuple _ ...)
+}
+
+And the pattern:
+\code{
+while x :
+  println
+}
+is identical to the pattern:
+\code{
+while x : (println)
+}
+
+It is customary to use lexer shorthands in the pattern definitions to improve readability.
+
+Thus the pattern:
+\code{
+[_ ...]
+}
+matches against the following s-expressions:
+\code{
+[x, y, z, z, z]
+}
+
+The pattern:
+\code{
+plus(_, _)
+}
+matches against all the following s-expressions:
+\code{
+plus(x, y)
+plus(1, 2)
+}
+
+The pattern:
+\code{
+while x :
+  println
+}
+matches against the following s-expressions:
+\code{
+while x :
+  println
+}
+but it does \italic{not} match against:
+\code{
+while x : println
+}
+
+\section{Productions and Rules}
+
+\subsection{What is a Rule?}
+
+A \italic{rule} is a combination of a pattern and a block of code to execute if the pattern matches. A \italic{rule} is specified for a \italic{production}. Here is an example rule that we used in our experiment framework:
+\code{
+defrule sentence = (the quick red fox) :
+  "Sentence about foxes"
+}
+
+The above syntax specifies the following:
+\list{
+\item This is a new rule for the \code{sentence} production.
+\item The pattern is \code{the quick red fox}. So this rule matches any s-expressions that match this pattern.
+\item If the s-expressions match, then the rule returns the string \code{"Sentence about foxes"}. 
+}
+
+\subsection{What is a Production?}
+
+A \italic{production} is a named set of rules. Our experiment framework defined a single production called \code{sentence}:
+\code{
+public defproduction sentence: String
+}
+
+The above specifies:
+\list{
+\item This is a new production called \code{sentence}.
+\item The rules for this production must return a \code{String} if they match.
+\item This production is \italic{public} and is visible to users of this syntax package.
+}
+
+Recall that to use our syntax package to parse some s-expressions we used the following:
+\code{
+val parsed = parse-syntax[my-experimental-language / #sentence](forms)
+}
+
+The above specifies:
+\list{
+\item Parse the s-expressions contained in the variable \code{forms}.
+\item Parse using the rules associated with the \code{sentence} production in the \code{my-experimental-language} syntax package.
+\item On a successful match the rule that matched will execute and return a \code{String}. This string will be stored into the \code{parsed} variable.
+}
+
+\subsection{Defining Multiple Productions}
+
+A syntax package can contain as many productions as we like.
+
+Let's introduce one more production to our experimental syntax package. Here is the new \code{myparser.stanza}:
+\code{
+defpackage myparser :
+  import core
+  import collections
+
+defsyntax my-experimental-language :
+
+  public defproduction sentence: String
+  
+  defrule sentence = (the quick red fox) :
+    "Sentence about foxes"
+    
+  defrule sentence = (the lazy brown dog) :
+    "Sentence about dogs"
+
+  defrule sentence = (the 3 "friendly" lions) :
+    "Sentence about lions"
+
+  public defproduction animal: String
+  defrule animal = (fox) : "little fox"
+  defrule animal = (dog) : "loyal dog"
+  defrule animal = (lion) : "regal lion"
+}
+
+Let's now modify the test program to try parsing some s-expressions using both productions. It will first attempt to parse the contents as a \code{sentence}, and then attempt to parse the contents as a \code{animal}. 
+
+\code{\#{
+defpackage test-myparser :
+  import core
+  import collections
+  import reader
+  import myparser
+
+defn main () :
+  val forms = read-file("test-input.txt")
+  println("PARSING:\n%_\n\n" % [forms])
+
+  try :
+    val parsed = parse-syntax[my-experimental-language / #sentence](forms)
+    println("RESULT:\n%_\n\n" % [parsed])
+  catch (e:Exception) :
+    println("Could not parse forms as sentence.")
+    println(e)
+
+  try :
+    val parsed = parse-syntax[my-experimental-language / #animal](forms)
+    println("RESULT:\n%_\n\n" % [parsed])
+  catch (e:Exception) :
+    println("Could not parse forms as animal.")
+    println(e)
+
+main()
+\#}}
+
+If we now fill \code{test-input.txt} with:
+\code{
+lion
+}
+and run the test program it will print out:
+\code{
+[WORK IN PROGRESS]
+}
+
+Notice that the s-expressions could \italic{not} be parsed as a \code{sentence}, but it can be successfully parsed as an \code{animal}. 
+
+\subsection{Order of Rule Matching}
+When searching for a match, the rules for a production are tested one at a time until the system reaches the first rule that matches. 
+
+Here is an example of a production with multiple rules: 
+\code{
+public defproduction sentence: String
+
+defrule sentence = (one big chance) :
+  "One big chance"
+
+defrule sentence = (one _ chance) :
+  "One ??? chance"
+
+defrule sentence = (_ big chance) :
+  "??? big chance"
+
+defrule sentence = (_ _ _) :
+  "Default case"
+}
+
+If we try to parse the following input:
+\code{
+one big chance
+}
+using the above production, the system will try out the first pattern \code{one big chance}. Since this pattern matches, the system will return \code{"One big chance"} and skip testing the rest of the rules.
+
+If we try to parse:
+\code{
+one small chance
+}
+then the system will return:
+\code{
+"One ??? chance"
+}
+because the \code{one _ chance} pattern is the first pattern that matches.
+
+If we try to parse:
+\code{
+my big chance
+}
+then the system will return:
+\code{
+"??? big chance"
+}
+
+Finally, if we try to parse:
+\code{
+my big break
+}
+then the system will return:
+\code{
+"Default case"
+}
+
+\subsection{Failure Rules}
+As mentioned above, by default the system automatically tries rules one at a time until it finds the first rule that matches.
+
+Sometimes, to keep behaviour predictable, it is important to \italic{prevent} the system from continuing the search if we can determine early that something has gone wrong. To handle this case, we can use a \code{fail-if} rule. 
+
+Here is an example:
+\code{
+public defproduction sentence: String
+
+defrule sentence = (one big chance) :
+  "One big chance"
+
+fail-if sentence = (one red chance) :
+  Exception("Sentence doesn't make sense. A chance cannot be red.")
+
+defrule sentence = (one _ chance) :
+  "One ??? chance"
+
+defrule sentence = (_ big chance) :
+  "??? big chance"
+
+defrule sentence = (_ _ _) :
+  "Default case"
+}
+
+Let's try to parse the following input:
+\code{
+one red chance
+}
+
+Our test program will print out:
+\code{
+[WORK IN PROGRESS]
+}
+
+Note that this means that the input did not successfully parse. As soon as the system detects that the input matches the pattern \code{one red chance} it halts the entire parse. 
+
+The general form of a \code{fail-if} rule has this structure:
+\code{
+fail-if production = (pattern) :
+  exception-body
+}
+which says:
+\list{
+\item If the system is parsing the production \code{production},
+\item and the system detects that the input matches the pattern \code{pattern},
+\item then the entire parse is a failure. The \code{exception-body} is executed to compute an \code{Exception} object that represents the cause of the failure.
+}
+
+This description is quite abstract, but we will use this construct later in a larger example that will show off the practical situations when \code{fail-if} rules are useful.
+
+\subsection{Closest Info}
+
+Within both \code{defrule} and \code{fail-if} rules, a special function called \code{closest-info} can be used to retrieve the file name and line number where the rule first matched. It returns a \code{FileInfo} object if there is file information attached, or \code{false} otherwise. 
+
+It is most often used in a \code{fail-if} rule to provide the location of the error. 
+
+Let's alter the \code{fail-if} rule above to the following:
+\code{
+fail-if sentence = (one red chance) :
+  match(closest-info()) :
+    (info:FileInfo) : Exception(to-string("%_: Sentence doesn't make sense. A chance cannot be red." % [info]))
+    (f:False) : Exception("Sentence doesn't make sense. A chance cannot be red.")
+}
+
+Now if we parse the following input:
+\code{
+one red chance
+}
+
+Our test program will print out:
+\code{
+[WORK IN PROGRESS]
+}
+
+\subsection{Referencing Productions in Patterns}
+
+The true expressivity of productions are fully utilitized only when we refer to a production from within a pattern. To refer to a production, we put the pound character \code{'#'} before the production name.
+
+Here is an example:
+\code{
+public defproduction sentence: String
+
+defrule sentence = (A #animal is an animal) :
+  "Sentence about animals"
+
+defrule sentence = (I am a #animal) :
+  "Sentence about what I am"
+
+defproduction animal: String
+defrule animal = (dog) : "Dogs"
+defrule animal = (lion) : "Lions"
+defrule animal = (meerkat) : "Meerkats"
+defrule animal = (warthog) : "Warthogs"
+}
+
+The pattern:
+\code{
+I am a #animal
+}
+consists of three literals (\code{I}, \code{am}, and \code{a}) that must exactly, followed by one production \code{#animal} that matches only if one of the \code{animal} rules match. 
+
+If we try to parse the following input:
+\code{
+A dog is an animal
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+If we try to parse the following input:
+\code{
+A meerkat is an animal
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+If we try to parse the following input:
+\code{
+I am a lion
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+If we try to parse the following input:
+\code{
+I am a cat
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+\subsection{Binders in Patterns}
+The previous section showed that we can refer to other productions from within a pattern. But it is unsatisfying that parsing both of the following:
+\code{
+A dog is an animal
+A lion is an animal
+}
+outputs the same parsing result:
+\code{
+"Sentence about animals"
+}
+
+How would we know which specific animal we're talking about?
+
+To handle this case, we can use a \italic{binder} to store the intermediate result of parsing the \code{#animal}. 
+
+Make the following change to the definition of our rules:
+\code{
+defrule sentence = (A ?a:#animal is an animal) :
+  to-string("Sentence about animals. Specifically about %_." % [a])
+
+defrule sentence = (I am a ?a:#animal) :
+  val len = length(a)
+  val singular = a[0 to len - 1]
+  to-string("Sentence about what I am. I am a %_." % [singular])
+}
+
+Now if we parse:
+\code{
+A dog is an animal
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+If we parse:
+\code{
+A meerkat is an animal
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+If we parse:
+\code{
+I am a lion
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+If we parse:
+\code{
+I am a cat
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+Recall that the \code{animal} production was declared like this:
+\code{
+defproduction animal: String
+}
+This means that the result of parsing an \code{animal} is a \code{String}.
+
+Using the following syntax within a rule:
+\code{
+?a:#animal
+}
+means that we would like to use the variable \code{a} to refer to the result of parsing the animal from within the body of the rule.
+
+If the \code{#animal} matches against \code{meerkat}, then \code{a} will contain the string \code{"Meerkats"}. If the \code{#animal} matches against \code{lion}, then \code{a} will contain the string \code{"Lions"}.
+
+Binders can be used to refer to the result of any pattern. An especially common and useful use case is for ellipsis patterns.
+
+Let's try adding one more rule for the \code{sentence} production.
+\code{
+defrule sentence = (The following are all animals : (?xs:#animal ...)) :
+  to-string("Sentence listing different animals: %," % [xs])
+}
+Within the body of the rule, the \code{xs} variable will refer to the result of parsing the pattern \code{#animal ...}. Since the result of parsing \code{#animal} is a \code{String}, the result of parsing \code{#animal ...} will be \code{List<String>}. 
+
+If we parse the following:
+\code{
+The following are all animals :
+  dog
+  lion
+  meerkat
+  warthog
+}
+the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+More generally, you can use a binder to bind to the result of any pattern. 
+\code{
+?a:PATTERN
+}
+
+There is a quick shorthand that allows you to omit the pattern entirely:
+\code{
+?a
+}
+This is synonymous with binding to the wildcard pattern:
+\code{
+?a:_
+}
+
+\subsection{Advanced Binding Patterns}
+The system properly handles binders when they are nested within list, ellipsis, and splice-ellipsis patterns. Here is an example of a nested binder:
+\code{
+defrule sentence = (Mean animals :
+                      (The ?animals:#animal is mean) @...) :
+  to-string("%, are mean." % [animals])
+}
+
+If we parse the following:
+\code{
+Mean animals :
+  The dog is mean
+  The lion is mean
+  The warthog is mean
+}
+then the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+Here is a sophisticated example involving multiple nested binders:
+\code{
+defrule sentence = (Friendships:
+                      (The ?animals:#animal likes (?friend-lists:#animal ...)) @...) :
+  val buffer = StringBuffer()
+  println(buffer, "Friendships between animals: ")
+  for (animal in animals, friends in friend-lists) do :
+    println(buffer, " %_ likes (%,)." % [animal, friends])
+  to-string(buffer)
+}
+
+If we parse the following:
+\code{
+Friendships :
+  The dog likes (dog, lion)
+  The meerkat likes (warthog)
+  The warthog likes (warthog, lion)
+}
+then the system prints out:
+\code{
+[WORK IN PROGRESS]
+}
+
+Note that the variable \code{friend-lists} has type \code{List<List<String>>} within the body of the rule. The pattern \code{#animal ...} has result type \code{List<String>}, and when it is nested within the spliced-ellipsis pattern \code{@...}, the final result type becomes \code{List<List<String>>}.
+
+Binders can appear under arbitrary levels of nesting, but we recommend keeping it to below two levels in order to keep the code readable.
+
+\subsection{Guard Predicates}
+A \italic{guard predicate} allows the user to use an arbitrary Stanza function to place further conditions on whether a rule matches or not. 
+
+Suppose that we have a predicate that determines whether a given s-expression might be a string that represents a name. We define a name to be any string that contains exactly a single space, and is made up of letters otherwise.
+\code{
+defn name? (x) -> True|False :
+  match(unwrap-token(x)) :
+    (s:String) :
+      val num-spaces = count({_ == ' '}, s)
+      val num-letters = count(letter?, s)
+      num-spaces == 1 and
+      num-letters + 1 == length(s)
+    (x) :
+      false
+}
+
+Suppose we have another predicate that determines whether a given s-expression might be a string that represents an address. We define an address to be any string that contains at least one space, one letter, and one digit.
+\code{
+defn address? (x) -> True|False :
+  match(unwrap-token(x)) :
+    (s:String) :
+      val num-spaces = count({_ == ' '}, s)
+      val num-digits = count(digit?, s)
+      val num-letters = count(letter?, s)
+      num-spaces > 0 and
+      num-digits > 0 and
+      num-letters > 0 and
+      (num-spaces + num-digits + num-letters) == length(s)
+    (x) :
+      false
+}
+
+Now we can use these predicates in the following rules.
+\code{
+defrule sentence = (Detail for ?a:#animal: ?detail) when name?(detail) :
+  to-string("The name of %_ is %_." % [a, detail])
+
+defrule sentence = (Detail for ?a:#animal: ?detail) when address?(detail) :
+  to-string("The %_ lives at address %_." % [a, detail])
+
+fail-if sentence = (Detail for ?a:#animal: ?detail) :
+  Exception("Unsupported detail for %_." % [a])
+}
+
+Parsing the following:
+\code{
+Detail for dog: "134 Varsity Avenue"
+}
+results in the following:
+\code{
+[WORK IN PROGRESS]
+}
+
+Parsing the following:
+\code{
+Detail for dog: "Rummy Li"
+}
+results in the following:
+\code{
+[WORK IN PROGRESS]
+}
+
+Parsing the following:
+\code{
+Detail for dog: "105; DROP TABLE Animals"
+}
+results in the following:
+\code{
+[WORK IN PROGRESS]
+}
+
+In the above rules the guard predicates place additional conditions on whether a rule matches. The first rule is match only if \code{detail} is bound to an s-expression that passes our \code{name?} predicate. The second rule matches only if \code{detail} is bound to an s-expression that passes our \code{address?} predicate. Finally, the last \code{fail-if} rule specifies explicitly that it is an error if \code{detail} does not pass either predicate.
+
+\subsection{Importing Productions}
+\code{
+[WORK IN PROGRESS]
+}
+
+\section{The Stanza Core Macros}
+\code{
+[WORK IN PROGRESS]
+}
+

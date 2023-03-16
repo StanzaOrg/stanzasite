@@ -1,0 +1,211 @@
+\chapter{QT Widgets}
+
+This project shows how to program widgets using the QT library and drive them from Stanza. As an example, it includes a basic scatter plot widget for displaying 2D point data.
+
+\section{Installation}
+
+\subsection{Placing Library Files in the Libqing Directory}
+
+Place the following files in the \code{libqing} directory:
+\list{
+\item \code{qtdriver.cpp}
+\item \code{qtdriver.h}
+\item \code{qtrepl.stanza}
+\item \code{qstanza-macros.stanza}
+}
+
+Now we need to extend the stanza compiler by typing in the following:
+\code{
+stanza LIBQING/qstanza-macros.stanza stz/main -o qstanza -optimize
+}
+where \code{LIBQING} is the path to the user's \code{libqing} directory.
+
+This produces the executable \code{qstanza}, which you will use from here on to compile the Stanza portion of your project.
+
+Place the rest of the files in the \code{PLOT} project directory.
+
+\subsection{Updating the Stanza Build File}
+
+Open the file \code{PLOT/stanza.build} and make sure that all the entries to files in the \code{libqing} directory are correct. These are the files named, e.g. \code{"../../libqing/interpreter.stanza"}. 
+
+\subsection{Updating the QT Project File}
+
+Open the file \code{PLOT/plot.pro} and make sure that all the entries to files in the \code{libqing} directory are correct. 
+
+\section{Compilation and Running the Example}
+
+\subsection{Compilation}
+
+To compile the project, type:
+\code{
+./qstanza build
+}
+in the terminal. Note that we are calling \code{qstanza} instead of \code{stanza} now. This will produce the file \code{main.s} which then needs to be compiled with the rest of the C++ classes using QT Creator.
+
+Use QT Creator to open the project defined by \code{plot.pro}, and compile the project. This should create a folder named something like \code{build-plot-Clang_4_9-Debug} in the directory above \code{PLOT}. 
+
+Now navigate to:
+\code{
+build-plot-Clang_4_9-Debug/plot.app/Contents/MacOS
+}
+and run the example program by typing:
+\code{
+./plot
+}
+
+\subsection{Operating the Example}
+
+Create a new plotting window by typing:
+\code{
+var w = Widget()
+}
+
+Show the plot by typing:
+\code{
+w.show
+}
+
+Add a new linear series to it by typing:
+\code{
+w.add-series(10.0, 10.0)
+}
+
+You can pan around by clicking down within the plot and dragging the mouse. To pan along only a single axis, you can click on the x or y-axis and drag the mouse. 
+
+You can zoom in and out by right-clicking down within the plot and dragging the mouse. If you're using an Apple laptop, you can also click with two fingers on the touchpad, and drag both fingers. You can similarly zoom along a single axis by right-clicking down on the x or y-axis and dragging the mouse.
+
+\subsection{Compilation without QT}
+
+For debugging and development purposes, you can also compile the project without support for QT, by typing:
+\code{
+./qstanza clean
+./qstanza build no-qt
+}
+
+Note that you need to clean the project whenever you:
+\list{
+\item change the compilation mode between with-QT or without-QT support, or
+\item change or define a new widget or object. 
+}
+
+This will produce the executable \code{plot}, which you can run from the terminal. If you try to call a function that requires QT support the program will halt with an error message.
+
+\section{Connecting to QT}
+
+\subsection{Calling QT Functions}
+
+The file \code{widget.h} defines the interface for the plotting widget. Its implementation is in \code{widget.cpp}. Here are the definitions that make up its public interface:
+\code{
+Widget();
+void add_series (Series* s, SeriesColor* sc);
+void clear_series ();
+void set_xmin (double v);
+void set_xmax (double v);
+void set_xmajor (double v);
+void set_xminor (double v);
+void set_ymin (double v);
+void set_ymax (double v);
+void set_ymajor (double v);
+void set_yminor (double v);
+}
+
+We will ignore \code{add_series} for now, and concentrate on the rest of them.
+
+Now open \code{main.stanza}. The file begins with the declaration:
+\code{
+#use-added-syntax(qstanza)
+}
+which indicates that you will be using the special commands for connecting to QT. 
+
+The \code{defqtpackage} declaration generates the connection code between Stanza and QT:
+\code{
+defqtpackage widgets "bindings.cpp" :
+  ... body ...
+}
+The above generates the C++ \code{bindings.cpp} file that tells QT how to connect to Stanza. This file needs to be included in the QT project file and compiled together with the rest of the project files. The package containing all the QT functions is called \code{widgets}. 
+
+The \code{defwidget} declaration generates the Stanza connections to a C++ QT widget.
+\code{
+defwidget Widget in "widget.h" :
+  constructor: () -> Widget
+  method show: () -> False
+  method hide: () -> False
+  ...
+  method set_ymajor: Double -> False with: (stanza-name => set-ymajor)
+}
+The above code connects to the \code{Widget} class defined in the C++ header \code{widget.h}. The constructor takes no arguments. The \code{show} method and \code{hide} methods takes no arguments, and returns \code{false}. The \code{set_ymajor} method takes a \code{Double} and returns \code{false}. The \code{stanza-name} option allows us to use a different name for the Stanza function. 
+
+The above declaration allows us to now create a \code{Widget} widget from within Stanza using:
+\code{
+val w = Widget()
+}
+To show or hide it we use:
+\code{
+show(w)
+hide(w)
+}
+To set the major line division of the y-axis we use:
+\code{
+set-ymajor(w, 42.0)
+}
+
+Note that methods in C++ are automatically translated to functions in Stanza. The widget that you want to call the method on become the first arguments to the functions.
+
+The QT generator allows the following primitive types to the passed between Stanza and C++:
+\list{
+\item The integer types: \code{Byte}, \code{Int}, and \code{Long}.
+\item The floating-point types: \code{Float}, and \code{Double}.
+\item The character type: \code{Char}.
+\item The String type: \code{String}.
+\item The boolean type: \code{True|False}.
+\item The false type: \code{False}. 
+}
+The false type is used in cases where the C++ method returns \code{void} and you don't care about the return value.
+
+\subsection{Passing Stanza Objects to QT}
+
+To help define models in Stanza, the QT connection allows you to pass Stanza objects to be used by QT. The scatter plot widget uses Stanza objects to define the points in each series and the color of each series. 
+
+The \code{defobject} command defines a Stanza object to be passed into C++:
+\code{
+defobject Series in "series.h" :
+  method num_points: (Double, Double, Double, Double) -> Int with:
+    stanza-name => num-points
+  method x: Int -> Double
+  method y: Int -> Double
+}
+This defines a Stanza type called \code{Series} with three methods. The C++ header for interacting with this type is defined in \code{series.h} which needs to be registered with the \code{plot.pro} file. Then from C++, given a variable \code{s}, of type \code{Series*}, we can retrieve the number of points in a region like so:
+\code{
+s->num_points(0.0, 0.0, 100.0, 100.0);
+}
+And retrieve the x and y coordinates of the 5th point like so:
+\code{
+s->x(4);
+s->y(4);
+}
+
+To create a \code{Series} object from Stanza, we can use the \code{new} operator as is typical. The function \code{MySeries} shows an example of creating one:
+\code{
+defn MySeries (xslope:Double, yslope:Double) :
+  new Series :
+    defmethod num-points (this, xmin:Double, xmax:Double,
+                          ymin:Double, ymax:Double) : 10
+    defmethod x (this, i:Int) : to-double(i) * xslope
+    defmethod y (this, i:Int) : to-double(i) * yslope
+}
+Notice that the \code{Series} object is accepted at the first argument to the function. 
+
+Once the \code{Series} object has been defined, we are allows to pass it into C++. The method \code{add_series} for \code{Widget} allows us to pass in a \code{Series} and \code{SeriesColor} Stanza objects:
+\code{
+defwidget Widget in "widget.h" :
+  ...
+  method add_series: (Series, SeriesColor) -> False with: (stanza-name => add-series)
+  ...
+}
+
+\subsection{Starting the REPL}
+Note that if you want to launch the REPL for the interpreter in a project that has QT support, you must call the \code{qt-repl} command instead of the original \code{repl} command. It takes a \code{VirtualMachine} object as before.
+
+\code{
+qt-repl(virtual-machine())
+}

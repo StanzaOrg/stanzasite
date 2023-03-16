@@ -1,0 +1,102 @@
+==== Website TODOs ====
+[X] Formatting for Book
+[x] API Documentation needs to be complete.
+[x] Read over biographies. Ask for George's biography.
+[x] Write Amazon sync scripts.
+[x] Use knowledge to write amazon sync scripts for scratchpad as well.
+[x] Copy stanza binary files over.
+[x] Rewrite philosophy section. Possibly move to new section.
+[x] Adjust sizing and colors.
+[x] Write new news entry for release.
+
+==== Book TODOs ====
+[X] function overloading
+[X] defpackage
+[X] import
+[X] operations on strings
+[X] operations on tuples
+[X] unknown length tuples
+[X] public visibility specifiers
+[X] protected visibility
+[X] where
+[X] when
+[X] setters for struct
+[X] custom printing behaviour
+[X] Point2D example
+[X] operator to function mapping
+[X] get and set operator mapping
+[X] match
+[X] Vectors
+[X] Tables
+[X] casts and parametric casts
+[X] is, is-not
+[X] Immediately explain the need for spaces!
+
+==== Organization ====
+[X] subtypes
+[X] deftype and new
+[X] using vars inside of new
+[X] multis and methods
+[X] Shapes example
+[X] Stack example
+[X] Multiple parents
+
+==== Programming with First-Class Functions ====
+[X] nested functions
+[X] first class functions
+[X] anonymous functions
+[X] anonymous function shorthands
+[X] application operator
+[X] for loop notation
+[X] operating functions
+[X] implementing your own operating functions
+[X] tail recursion (and loops)
+[X] permutations example
+
+==== Programming with Sequences ====
+[X] core library sequence library
+[X] Make stack a collection
+[X] Sequences
+
+==== Programming with Immutable Datastructures ====
+[X] Functional programming with lists
+[X] Lists
+[X] Automatic Differentiation Example
+
+==== Parametric Polymorphism ====
+[X] polymorphic functions: explicit and captured type arguments
+[X] parametric types, and parametric structs
+[X] Stack<T> example
+
+==== A Deeper Look at the Type System ====
+[X] subtyping relationships
+[X] function type, and subtyping rules
+[X] intersection type
+
+==== Advanced Control Flow ====
+[X] first class labeled scopes
+[X] first class generators
+[X] first class generators
+[X] coroutines: resume, suspend, break
+
+==== Calling Foreign Functions ====
+[X] FFI calling C
+[X] FFI calling Stanza
+[X] FFI HiStanza to LoStanza
+[X] FFI LoStanza to HiStanza
+[X] FFI fibonacci example
+
+==== Appendix ====
+[ ] Full function overloading/resolution/mixing algorithm
+[ ] Lexer phase
+[ ] Comparable
+[X] qualified identifiers
+[ ] command-line flags
+[ ] .stanza options
+[X] switch
+[ ] struct options
+[ ] import prefixes
+[ ] defchild
+[ ] String interpolation operators
+[ ] public: and protected: specifiers
+[ ] S-Expressions

@@ -1,0 +1,1182 @@
+\chapter{Architecting Programs}{
+This chapter teaches you how to organize and architect large programs using Stanza's class-less object system.
+}
+
+Stanza's object system differs significantly from most other programming languages. Most other languages (e.g. Java, C#, Python, Ruby, Objective-C, C++, Swift, Scala, OCaml, etc.) employ a \italic{class} based object system. In a class based object system, each \italic{thing} in the program is represented using a class. For each \italic{ability} that a thing has, the user adds another method to its class. Classes have all the power in a class-based object system. Methods live inside classes.
+
+In contrast, Stanza employs a \italic{class-less} object system. In Stanza, each \italic{thing} is represented as a type. There is a minimal set of fundamental operations that defines the behaviour of a type. After that, everything that can be \italic{done} with each thing is implemented as a simple function. Both types and functions have equal standing. Types do not live inside functions, nor do functions live inside types. The careful balance between these constructs is what gives Stanza its flexibility and architectural power.
+
+\section{A Shape Library}
+In \code{shapes.stanza}, let's create a package for creating and manipulating two-dimensional shapes.
+\code{
+defpackage shapes :
+   import core
+   import math
+
+public defstruct Point :
+   x: Double
+   y: Double
+
+public defstruct Circle :
+   x: Double
+   y: Double
+   radius: Double
+
+public defn area (s:Point|Circle) -> Double :
+   match(s) :
+      (s:Point) : 0.0
+      (s:Circle) : PI * radius(s) * radius(s)
+
+defmethod print (o:OutputStream, p:Point) :
+   print(o, "Point(%_, %_)" % [x(p), y(p)])
+
+defmethod print (o:OutputStream, c:Circle) :
+   print(o, "Circle(%_, %_, radius = %_)" % [x(c), y(c), radius(c)])
+}
+The \code{shapes} package contains struct definitions for points and circles, methods for printing them, as well as an \code{area} function for computing the areas of these shapes. It imports the \code{math} package to access the definition of the mathematical constant \code{PI}. 
+
+In \code{shapes-main.stanza}, as our main program, let's compute the total area of a bunch of shapes. 
+\code{
+defpackage shapes/main :
+   import core
+   import collections
+   import shapes
+
+defn total-area (ss:Vector<Point|Circle>) :
+   var total = 0.0
+   for s in ss do :
+      total = total + area(s)
+   total   
+
+defn main () :
+   val ss = Vector<Point|Circle>()
+   add(ss, Point(1.0, 1.0))
+   add(ss, Circle(2.0, 2.0, 3.0))
+   add(ss, Circle(3.0, 0.0, 1.0))
+   println("Shapes:")
+   println(ss)
+   println("Total area = %_" % [total-area(ss)])
+
+main()
+}
+
+Compile and run the program by typing the following in the terminal.
+\code{
+stanza shapes.stanza shapes-main.stanza -o shapes
+./shapes
+}
+
+It should print out
+\code{
+Shapes:
+[Point(1.000000000000000, 1.000000000000000)
+ Circle(2.000000000000000, 2.000000000000000, radius = 3.000000000000000)
+ Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)]
+Total area = 31.415926535897931
+}
+
+\section{Creating a New Shape}
+Our \code{shapes} package supports points and circles, but let's now extend it to support rectangles. What do we need to change in order to support another shape?
+\list{
+\item First we need to define a \code{Rectangle} struct for representing rectangles.
+\item Next we need to provide custom printing behavior for rectangles.
+\item We need to change \code{area}'s type signature to now accept a \code{Point|Circle|Rectangle}.
+\item We need to add another branch to the implementation of \code{area} to support rectangles.
+\item We need to change \code{total-area}'s type signature to now accept a \code{Vector<Point|Circle|Rectangle>}.
+\item We need to change how \code{ss} is created to allow it to also hold rectangles.
+}
+
+The first two items are straightforward so let's do that immediately.
+\code{
+public defstruct Rectangle :
+   x: Double
+   y: Double
+   width: Double
+   height: Double
+
+defmethod print (o:OutputStream, r:Rectangle) :
+   print(o, "Rectangle(%_, %_, size = %_ x %_)" %
+         [x(r), y(r), width(r), height(r)])
+}
+A rectangle is defined by the coordinates of its bottom-left corner and its width and height.
+
+The other items on the list are not hard to implement at present but it is clear that it is not a sustainable strategy. Here's how it would look.
+\code{area} in the \code{shapes} package is updated to
+\code{
+public defn area (s:Point|Circle|Rectangle) -> Double :
+   match(s) :
+      (s:Point) : 0.0
+      (s:Circle) : PI * radius(s) * radius(s)
+      (s:Rectangle) : width(s) * height(s)
+}
+\code{total-area} in the \code{shapes/main} package is updated to
+\code{
+defn total-area (ss:Vector<Point|Circle|Rectangle>) :
+   var total = 0.0
+   for s in ss do :
+      total = total + area(s)
+   total  
+}
+And the creation of \code{ss} in the \code{main} function is updated to
+\code{
+val ss = Vector<Point|Circle|Rectangle>()
+}
+It is not a pretty solution. Imagine if we had ten more types shapes to define. \code{area}'s type signature would quickly become unwieldy as we tack on more and more types to the argument. Every new shape requires manually editing the internals of the \code{area} function. Currently \code{area} is the only function defined on shapes, but what if there were a dozen more? Would we have to manually edit the internals of each of them? 
+
+By far, the worst aspect of the solution is the need to update the definition of the user's \code{total-area} function and \code{ss} vector. The user simply wants \code{total-area} to accept a vector of shapes. Which shapes? Well, \italic{any} shape! There must be a better way to express that than an explicit union containing the names of every single type of shape currently defined.
+
+\section{Subtyping}
+Here is the definition of a new \italic{type} called \code{Shape}.
+\code{
+public deftype Shape
+}
+A \code{Shape} is a general representation of a two-dimensional shape. If an object has type \code{Shape}, then we know that it is definitely a shape, though we may not know which particular shape it is. 
+
+Here is how to annotate our \code{Point} struct as being a \italic{subtype} of \code{Shape}.
+\code{
+public defstruct Point <: Shape :
+   x: Double
+   y: Double
+}
+This annotation tells Stanza that all points are shapes. Thus if we write a function that requires \code{Shape} objects,
+\code{
+defn its-a-shape (s:Shape) :
+   println("%_ is a shape!" % [s])
+}
+then we are allowed to pass it \code{Point} objects. The following
+\code{
+its-a-shape(Point(1.0, 2.0))
+}
+compiles correctly and prints out
+\code{
+Point(1.000000000000000, 2.000000000000000) is a shape!
+}
+
+Note, however, that though all points are shapes, \italic{not} all shapes are points. Thus if we write a function that requires \code{Point} objects,
+\code{
+defn its-a-point (p:Point) :
+   println("%_ is a point!" % [p])
+}
+and try it to call it with a \code{Shape} object,
+\code{
+var s:Shape
+its-a-point(s)
+}
+Stanza will give the following error.
+\code{
+Cannot call function its-a-point of type Point -> False with arguments
+of type (Shape).
+}
+
+Thus the relationship
+\code{
+Point <: Shape
+}
+says that \code{Point} is a subtype of \code{Shape}, meaning that all \code{Point} objects are also \code{Shape} objects (but not vice versa). 
+
+\subsection{Code Cleanup}
+Now that we have a definition for \code{Shape}, let's indicate this relationship for all of our shape structs.
+\code{
+public defstruct Point <: Shape :
+   x: Double
+   y: Double
+
+public defstruct Circle <: Shape :
+   x: Double
+   y: Double
+   radius: Double
+
+public defstruct Rectangle <: Shape :
+   x: Double
+   y: Double
+   width: Double
+   height: Double
+}
+Now all of our shape structs are also subtypes of \code{Shape}. This allows us to clean up many of the type signatures, both in the \code{shapes} package and in the \code{shapes/main} package.
+
+The type signature for \code{area} is simplified.
+\code{
+public defn area (s:Shape) -> Double :
+   match(s) :
+      (s:Point) : 0.0
+      (s:Circle) : PI * radius(s) * radius(s)
+      (s:Rectangle) : width(s) * height(s)
+}
+
+The type signature for \code{total-area} is simplified.
+\code{
+defn total-area (ss:Vector<Shape>) :
+   var total = 0.0
+   for s in ss do :
+      total = total + area(s)
+   total   
+}
+
+And the creation of \code{ss} is simplified.
+\code{
+val ss = Vector<Shape>()
+}
+
+Notice that with these simplifications, items 3, 5, and 6 on our checklist for creating new shapes are no longer necessary.
+
+\section{Multis and Methods}
+Our \code{shape} package is architecturally fairly complete at this point. It currently supports points, circles and rectangles, and we can calculate the area of each of them. If we need another shape, e.g. lines, then all we have to do is define a \code{Line} struct and edit \code{area} to support \code{Line} objects. 
+
+\subsection{The Need for Extensibility}
+There remains one limitation to our shapes library however. Suppose that we are the authors and maintainers in charge of the shapes library, and that there are many users who use the \code{shapes} package for their daily work. What should a user do if our library does not support a shape that he needs? This is a likely scenario, because it is implausible for us to have fully considered the shape needs of every user. And often, some user's needs are so specific that we don't \italic{want} to support it in the standard shapes library. It will just end up cluttering the library and confusing the rest of the users. For example, it seems inappropriate to support the \code{Salinon} shape in the standard library. 
+
+What we can do however, is to allow users to define their \italic{own} shapes. Then typical users can stay content using the standard shapes in the library, and power users can define their own shapes for their own use. 
+
+Users can \italic{almost} do this. They can create their own shape struct, and provide custom printing behaviour for it. Let us portray here a user working on greek architecture, and who has started defining his own extensions to the shape library in the file \code{greek-shapes.stanza}.
+\code{
+defpackage greek-shapes :
+   import core
+   import shapes
+
+public defstruct Salinon <: Shape :
+   x: Double
+   y: Double
+   outer-radius: Double
+   inner-radius: Double
+
+defmethod print (o:OutputStream, s:Salinon) :
+   print(o, "Salinon(%_, %_, outer-radius = %_, inner-radius = %_)" % [
+      x(s), y(s), outer-radius(s), inner-radius(s)])
+}
+The problem though is that the user has no way of extending \code{area} to support \code{Salinon} shapes, because that would require editing the code in the \code{shapes} package, which he does not have access to.
+
+\subsection{defmulti and defmethod}
+The solution is to declare \code{area} not as a function but as a \italic{multi}.
+\code{
+public defmulti area (s:Shape) -> Double
+}
+Note that the definition of a multi does not include a body. It simply says that \code{area} is a multi that when called with a \code{Shape} returns a \code{Double}. 
+
+Here is how to \italic{attach} a method to a multi.
+\code{
+defmethod area (p:Point) -> Double :
+   0.0
+}
+This definition tells Stanza that when the \code{area} multi is called on a \code{Point} then simply return \code{0.0}. 
+
+Here are the methods for \code{area} for circles and rectangles.
+\code{
+defmethod area (c:Circle) :
+   PI * radius(c) * radius(c)
+
+defmethod area (r:Rectangle) :
+   width(r) * height(r)
+}
+Notice that similar to functions, if the return type is not given, then it is inferred from the method body. 
+
+A multi can have any number of methods, and the methods can be distributed across any number of packages and source files. Thus our greek architect can now define a method for \code{area} for \code{Salinon} shapes in his own \code{greek-shapes} package.
+\code{
+defpackage greek-shapes :
+   import core
+   import shapes
+   import math
+
+...
+
+defmethod area (s:Salinon) :
+   val r = outer-radius(s) + inner-radius(s)
+   PI * r * r / 4.0
+}
+You'll just have to trust me on the area of a salinon.
+
+Let's go back to our main program now and include a couple of salinons in our \code{ss} vector.
+\code{
+defpackage shapes/main :
+   import core
+   import collections
+   import shapes
+   import greek-shapes
+
+...
+
+defn main () :
+   val ss = Vector<Shape>()
+   add(ss, Point(1.0, 1.0))
+   add(ss, Circle(2.0, 2.0, 3.0))
+   add(ss, Circle(3.0, 0.0, 1.0))
+   add(ss, Salinon(0.0, 0.0, 10.0, 5.0))
+   add(ss, Salinon(5.0, -1.0, 8.0, 7.0))
+   println("Shapes:")
+   println(ss)
+   println("Total area = %_" % [total-area(ss)])
+
+...
+}
+
+Compile and run the program by typing
+\code{
+stanza shapes.stanza greek-shapes.stanza shapes-main.stanza -o shapes
+./shapes
+}
+
+The program should print out
+\code{
+Shapes:
+[Point(1.000000000000000, 1.000000000000000)
+ Circle(2.000000000000000, 2.000000000000000, radius = 3.000000000000000)
+ Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
+ Salinon(0.000000000000000, 0.000000000000000,
+         outer-radius = 10.000000000000000, inner-radius = 5.000000000000000)
+ Salinon(5.000000000000000, -1.000000000000000,
+         outer-radius = 8.000000000000000, inner-radius = 7.000000000000000)]
+Total area = 384.845100064749658
+}
+
+The following listing contains the complete program.
+\subsection{Program Listing}
+In \code{shapes.stanza}
+\code{
+defpackage shapes :
+   import core
+   import math
+
+public deftype Shape
+
+public defstruct Point <: Shape :
+   x: Double
+   y: Double
+
+public defstruct Circle <: Shape :
+   x: Double
+   y: Double
+   radius: Double
+
+public defstruct Rectangle <: Shape :
+   x: Double
+   y: Double
+   width: Double
+   height: Double
+
+defmethod print (o:OutputStream, p:Point) :
+   print(o, "Point(%_, %_)" % [x(p), y(p)])
+
+defmethod print (o:OutputStream, c:Circle) :
+   print(o, "Circle(%_, %_, radius = %_)" % [x(c), y(c), radius(c)])
+
+defmethod print (o:OutputStream, r:Rectangle) :
+   print(o, "Rectangle(%_, %_, size = %_ x %_)" %
+         [x(r), y(r), width(r), height(r)])
+
+public defmulti area (s:Shape) -> Double
+
+defmethod area (p:Point) -> Double :
+   0.0
+
+defmethod area (c:Circle) :
+   PI * radius(c) * radius(c)
+
+defmethod area (r:Rectangle) :
+   width(r) * height(r)
+}
+   
+In \code{greek-shapes.stanza}
+\code{
+defpackage greek-shapes :
+   import core
+   import shapes
+   import math
+
+public defstruct Salinon <: Shape :
+   x: Double
+   y: Double
+   outer-radius: Double
+   inner-radius: Double
+
+defmethod print (o:OutputStream, s:Salinon) :
+   print(o, "Salinon(%_, %_, outer-radius = %_, inner-radius = %_)" % [
+      x(s), y(s), outer-radius(s), inner-radius(s)])
+
+defmethod area (s:Salinon) :
+   val r = outer-radius(s) + inner-radius(s)
+   PI * r * r / 4.0
+}
+
+In \code{shapes-main.stanza}
+\code{
+defpackage shapes/main :
+   import core
+   import collections
+   import shapes
+   import greek-shapes
+
+defn total-area (ss:Vector<Shape>) :
+   var total = 0.0
+   for s in ss do :
+      total = total + area(s)
+   total   
+
+defn main () :
+   val ss = Vector<Shape>()
+   add(ss, Point(1.0, 1.0))
+   add(ss, Circle(2.0, 2.0, 3.0))
+   add(ss, Circle(3.0, 0.0, 1.0))
+   add(ss, Salinon(0.0, 0.0, 10.0, 5.0))
+   add(ss, Salinon(5.0, -1.0, 8.0, 7.0))
+   println("Shapes:")
+   println(ss)
+   println("Total area = %_" % [total-area(ss)])
+
+main()
+}
+
+\section{Default Methods}
+Our current implementation of \code{area} does not have a \italic{default} method. This means that if we call \code{area} with a shape that has no appropriate method, then the program will crash. Let's try this by commenting out the method for computing the areas of salinons and try running our program again.
+\code{
+;defmethod area (s:Salinon) :
+;   val r = outer-radius(s) + inner-radius(s)
+;   PI * r * r / 4.0
+}
+It should print out
+\code{
+Shapes:
+[Point(1.000000000000000, 1.000000000000000)
+ Circle(2.000000000000000, 2.000000000000000, radius = 3.000000000000000)
+ Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
+ Salinon(0.000000000000000, 0.000000000000000,
+         outer-radius = 10.000000000000000, inner-radius = 5.000000000000000)
+ Salinon(5.000000000000000, -1.000000000000000,
+         outer-radius = 8.000000000000000, inner-radius = 7.000000000000000)]
+FATAL ERROR: No matching branch.
+   at shapes.stanza:31.16
+   at shapes-main.stanza:10.22
+   at core/collections.stanza:182.15
+   at core/core.stanza:4042.16
+   at shapes-main.stanza:9.15
+   at shapes-main.stanza:22.32
+   at shapes-main.stanza:24.0
+}
+
+Let's instead provide a \italic{default} method that is called when no other method matches. Add the following method to the \code{shapes} package
+\code{
+defmethod area (s:Shape) :
+   println("No appropriate area method for %_." % [s])
+   println("Returning 0.0.")
+   0.0
+}
+and run the program again. It should now print out
+\code{
+Shapes:
+[Point(1.000000000000000, 1.000000000000000)
+ Circle(2.000000000000000, 2.000000000000000, radius = 3.000000000000000)
+ Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
+ Salinon(0.000000000000000, 0.000000000000000,
+         outer-radius = 10.000000000000000, inner-radius = 5.000000000000000)
+ Salinon(5.000000000000000, -1.000000000000000,
+         outer-radius = 8.000000000000000, inner-radius = 7.000000000000000)]
+No appropriate area method for
+   Salinon(0.000000000000000, 0.000000000000000,
+           outer-radius = 10.000000000000000, inner-radius = 5.000000000000000).
+Returning 0.0.
+No appropriate area method for
+   Salinon(5.000000000000000, -1.000000000000000,
+           outer-radius = 8.000000000000000, inner-radius = 7.000000000000000).
+Returning 0.0.
+Total area = 31.415926535897931
+}
+
+Default methods are often used to return a default value when no other method is appropriate. Another common use case for default methods is to provide a slow but general implementation of a certain function that works on any type in its domain, and then use methods to provide efficient implementations for specialized types. 
+
+\section{Underneath the Hood}
+To help you better understand how the multi and method system works, here is what is happening underneath the hood. When a Stanza program is compiled it searches through all the packages and gathers up all the methods defined for each multi. In our \code{shapes} example, that gives us
+\code{
+public defmulti area (s:Shape) -> Double
+defmethod area (s:Shape) :
+   println("No appropriate area method for %_." % [s])
+   println("Returning 0.0.")
+   0.0
+defmethod area (p:Point) -> Double :
+   0.0
+defmethod area (c:Circle) :
+   PI * radius(c) * radius(c)
+defmethod area (r:Rectangle) :
+   width(r) * height(r)
+defmethod area (s:Salinon) :
+   val r = outer-radius(s) + inner-radius(s)
+   PI * r * r / 4.0
+}
+These methods are then \italic{sorted} from most specific to least specific, and the multi is transformed into a single function with a match expression for selecting which method to call.
+\code{
+public defn area (s:Shape) -> Double :
+   match(s) :
+      (p:Point) :
+         0.0
+      (c:Circle) :
+         PI * radius(c) * radius(c)
+      (r:Rectangle) :
+         width(r) * height(r)
+      (s:Salinon) :
+         val r = outer-radius(s) + inner-radius(s)
+         PI * r * r / 4.0
+      (s:Shape) :
+         println("No appropriate area method for %_." % [s])
+         println("Returning 0.0.")
+         0.0
+}
+Notice how the default method for \code{Shape} is positioned as the last branch in the match expression as it is the least specific method. 
+
+Thus this engine demonstrates that Stanza's multi and method system can simply be thought of as a way of writing match expressions but with its branches distributed across multiple packages.
+
+\section{Intersection Types}
+
+\subsection{Multiple Parent Types}
+Suppose we have a type called \code{Rollable} with the following multi declared.
+\code{
+deftype Rollable
+defmulti roll-distance (r:Rollable) -> Double
+}
+\code{roll-distance} computes the distance traveled by a \code{Rollable} object in one revolution.
+
+We now wish to make \code{Circle} a subtype of \code{Rollable} and provide it an appropriate method for \code{roll-distance}, but \code{Circle} is already declared to be a subtype of \code{Shape}! The solution is to declare \code{Circle} as both a subtype of \code{Shape} \italic{and} \code{Rollable}. 
+\code{
+public defstruct Circle <: Shape & Rollable :
+   x: Double
+   y: Double
+   radius: Double
+}
+This is an example of using an \italic{intersection type}. Now we can provide a method for \code{roll-distance} on \code{Circle} objects.
+\code{
+defmethod roll-distance (c:Circle) :
+   2.0 * PI * radius(c)
+}
+A circle rolls exactly the length of its diameter in one revolution.
+
+Let's try it out!
+\code{
+defn try-rolling () :
+   val c = Circle(0.0, 0.0, 10.0)
+   println("The circle %_ rolls %_ units in one revolution." % [c, roll-distance(c)])
+
+try-rolling()
+}
+Compiling and running the above prints out
+\code{
+The circle Circle(0.000000000000000, 0.000000000000000,
+                  radius = 10.000000000000000) 
+rolls 62.831853071795862 units in one revolution.
+}
+
+\subsection{Intersection Types as Arguments}
+Let's suppose that we're about to make a pizza, and we need to choose the shape of its base. Additionally, we're experimenting with new pizza delivery methods, and would also like the pizza to be able to roll.
+
+Here's the function that makes our pizza.
+\code{
+defn make-pizza (base:Shape & Rollable) :
+   println("Let's make a pizza!")
+   println("The base will have shape %_." % [base])
+   println("And it will have area %_." % [area(base)])
+   println("Plus when we roll it, it travels %_ units!" % [roll-distance(base)])
+}
+Because we call \code{area} on \code{base} we know that the \code{base} needs to be a type of \code{Shape} object. But we also call \code{roll-distance} on \code{base}, and so \code{base} will \italic{also} have to be a type of \code{Rollable} object. Thus \code{base} is declared to be both \code{Shape} and \code{Rollable}.
+
+Let's try it out!
+\code{
+make-pizza(Circle(0.0, 0.0, 10.0))
+}
+Compiling and running the above prints out
+\code{
+Let's make a pizza!
+The base will have shape Circle(0.000000000000000, 0.000000000000000, 
+                                radius = 10.000000000000000).
+And it will have area 314.159265358979326.
+Plus when we roll it, it travels 62.831853071795862 units!
+}
+So circular pizzas will be our first foray into rolling self-delivering pizzas!
+
+The argument that \code{make-pizza} requires needs to be both a \code{Shape} and a \code{Rollable}. We do have other shapes available that are not \code{Rollable}. Here is what happens if we try to make a rectangular pizza for example.
+\code{
+make-pizza(Rectangle(0.0, 0.0, 5.0, 3.0))
+}
+Attempting to compile the above gives us the following error.
+\code{
+Cannot call function make-pizza of type Rollable&Shape -> False 
+with arguments of type (Rectangle).
+}
+Thus Stanza correctly prevents us from attempting to make pizzas out of shapes that don't roll.
+
+\section{The Flexibility of Functions}
+In the beginning of the chapter we said that Stanza's class-less object system gives you flexibility you wouldn't have in a typical class based language. Here is a demonstration of that. 
+
+The definition of the \code{Circle} struct in the \code{shapes} package defines circles using their x and y coordinates, and their radius. But what if, as a user, we don't like this convention and instead want to define circles given a \code{Point} to represent their center, and their diameter? Stanza allows us to easily do that.
+
+Here is \code{shape-utils.stanza}, which contains a user defined package with his own utilities for managing shapes. 
+\code{
+defpackage shape-utils :
+   import core
+   import shapes
+
+public defn Circle (center:Point, diameter:Double) :
+   Circle(x(center), y(center), diameter / 2.0)
+
+public defn diameter (c:Circle) :
+   radius(c) * 2.0
+
+public defn center (c:Circle) :
+   Point(x(c), y(c))
+}
+With this package, users can now use circles as if they were defined with a center point and a diameter instead of a pair of x, and y coordinates and a radius. Let's update our \code{main} function to use this new convention.
+\code{
+defpackage shapes/main :
+   import core
+   import collections
+   import shapes
+   import greek-shapes
+   import shape-utils
+
+...
+   
+defn main () :
+   val ss = Vector<Shape>()
+   add(ss, Point(1.0, 1.0))
+   add(ss, Circle(Point(2.0, 2.0), 6.0))
+   add(ss, Circle(Point(3.0, 0.0), 2.0))
+   add(ss, Salinon(0.0, 0.0, 10.0, 5.0))
+   add(ss, Salinon(5.0, -1.0, 8.0, 7.0))
+   println("Shapes:")
+   println(ss)
+   println("Total area = %_" % [total-area(ss)])
+}
+Run the program to see that it continues to print out the same message as before.
+\code{
+Shapes:
+[Point(1.000000000000000, 1.000000000000000)
+ Circle(2.000000000000000, 2.000000000000000, radius = 3.000000000000000)
+ Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
+ Salinon(0.000000000000000, 0.000000000000000,
+         outer-radius = 10.000000000000000, inner-radius = 5.000000000000000)
+ Salinon(5.000000000000000, -1.000000000000000,
+         outer-radius = 8.000000000000000, inner-radius = 7.000000000000000)]
+Total area = 384.845100064749658
+}
+
+Note that the \code{center} and \code{diameter} functions in the \code{shape-utils} package are no less "special" or "fundamental" than the \code{x}, \code{y}, and \code{radius} functions in the \code{shapes} package. Users can use whichever representation they prefer. Most importantly, adding this functionality did not require the user to communicate with the authors of the \code{shapes} package at all. 
+
+We can similarly add support for a new representation of rectangles. Currently, a rectangle is represented using the x, and y coordinates of its bottom-left corner and its width and height. Let's add support for representing rectangles given its bottom-left point and its top-right point.
+\code{
+public defn Rectangle (bottom-left:Point, top-right:Point) :
+   val w = x(top-right) - x(bottom-left)
+   val h = y(top-right) - y(bottom-left)
+   if (w < 0.0) or (h < 0.0) : fatal("Illegal Rectangle!")
+   Rectangle(x(bottom-left), y(bottom-left), w, h)
+   
+public defn bottom-left (r:Rectangle) :
+   Point(x(r), y(r))
+
+public defn top-right (r:Rectangle) :
+   Point(x(r) + width(r), y(r) + height(r))
+}
+Again, the \code{bottom-left} and \code{top-right} functions in the \code{shape-utils} package are no less "fundamental" than the \code{x}, \code{y}, \code{width}, and \code{height} functions in the \code{shapes} package.
+
+\section{Fundamental and Derived Operations}
+\italic{Things} in your program are modeled using \italic{types} in Stanza. Anything than can be \italic{done} using a type is implemented as a function (or multi). These operations are further categorized into \italic{fundamental} and \italic{derived} operations. 
+
+The \code{area} function for \code{Shape} objects is an example of a fundamental operation. At least in our \code{shapes} package, a shape is \italic{defined} by its property of having an area. In fact, the \italic{only} thing that all shapes have in common is that you can compute their area. And when defining a new type of shape, users \italic{must} also define an appropriate method for \code{area}. 
+
+Here is an example of a \italic{derived} operation on shapes.
+\code{
+public defn sort-by-area (xs:Array<Shape>) :
+   var sorted? = false
+   while not sorted? :
+      sorted? = true
+      for i in 0 to (length(xs) - 1) do :
+         if area(xs[i + 1]) < area(xs[i]) :
+            val a = xs[i]
+            val b = xs[i + 1]
+            xs[i] = b
+            xs[i + 1] = a
+            sorted? = false      
+}
+This operation allows you to sort an array of shapes by increasing area. By reading its definition, you can see that it will work on \italic{all} shapes, because the only operation it requires is the ability to call \code{area}. A derived operation is a function implemented in terms of a type's fundamental operations. 
+
+When defining a new subtype of an existing type, users must implement a small set of fundamental operations to ensure correct operation of their subtype. In the core library documentation, this set is called the \italic{mandatory minimal implementation}. 
+
+The typical architecture of a Stanza program is to define a \italic{small} number of fundamental operations for each type, coupled with a \italic{large} library of derived operations. Structuring your program in this way gives you the most flexibility and extensibility. Adding new derived operations is as simple as defining a new function and is very easy. Defining new types is also easy as their mandatory minimal implementations are small.
+
+\section{Multiple Dispatch}
+The \code{area} multi in the \code{shapes} package accepts only a single argument, and at runtime it \italic{dispatches} to the appropriate method depending on the type of the argument. Stanza places no restriction on the number of arguments that a multi can take, so users can write multis that dispatches to the appropriate method depending on the types of \italic{multiple} arguments. This feature is called \italic{multiple dispatch}. 
+
+We will demonstrate the power of multiple dispatch by writing an \italic{overlaps?} function that decides whether two shapes are overlapping. Here is the definition of the multi.
+\code{
+public defmulti overlaps? (a:Shape, b:Shape) -> True|False
+}
+It returns \code{true} if the shape \code{a} overlaps with shape \code{b}, or \code{false} otherwise.
+
+Points have zero area, so two points overlap only if they are exactly equal to each other. 
+\code{
+defmethod overlaps? (a:Point, b:Point) :
+   (x(a) == x(b)) and (y(a) == y(b))
+}
+
+A circle overlaps with a point if the distance between the point and the center of the circle is less than or equal to the radius of the circle.
+\code{
+defmethod overlaps? (a:Point, b:Circle) :
+   val dx = x(b) - x(a)
+   val dy = y(b) - y(a)
+   val r = radius(b)
+   dx * dx + dy * dy <= r * r
+}
+
+Stanza makes no assumption that \code{overlaps?} is commutative. So we explicitly tell Stanza that a circle overlaps with a point if the point overlaps with the circle.
+\code{
+defmethod overlaps? (a:Circle, b:Point) :
+   overlaps?(b, a)
+}
+
+Finally, two circles overlap if the center of circle \code{a} overlaps with a circle with the same center as circle \code{b} but with radius equal to the sum of both circles.
+\code{
+defmethod overlaps? (a:Circle, b:Circle) :
+   overlaps?(Point(x(a), y(a)), Circle(x(b), y(b), radius(b) + radius(a)))
+}
+
+With these definitions, \code{overlaps?} completely handles points and circles. Let's try it out.
+\code{\#{
+defn test-overlap (a:Shape, b:Shape) :
+   println(a)
+   if overlaps?(a, b) : println("overlaps with")
+   else : println("does not overlap with")
+   println(b)
+   print("\n")
+   
+defn try-overlaps () :
+   val pt-a = Point(0.0, 0.0)
+   val pt-b = Point(0.0, 3.0)
+   val circ-a = Circle(0.0, 3.0, 1.0)
+   val circ-b = Circle(3.0, 0.0, 1.0)
+   val circ-c = Circle(0.0, 0.0, 3.0)
+   test-overlap(pt-a, pt-b)
+   test-overlap(circ-a, circ-b)
+   test-overlap(pt-b, circ-b)
+   test-overlap(circ-a, pt-b)
+   test-overlap(circ-c, circ-a)
+
+try-overlaps()
+\#}}
+The above prints out
+\code{
+Point(0.000000000000000, 0.000000000000000)
+does not overlap with
+Point(0.000000000000000, 3.000000000000000)
+
+Circle(0.000000000000000, 3.000000000000000, radius = 1.000000000000000)
+does not overlap with
+Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
+
+Point(0.000000000000000, 3.000000000000000)
+does not overlap with
+Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
+
+Circle(0.000000000000000, 3.000000000000000, radius = 1.000000000000000)
+overlaps with
+Point(0.000000000000000, 3.000000000000000)
+
+Circle(0.000000000000000, 0.000000000000000, radius = 3.000000000000000)
+overlaps with
+Circle(0.000000000000000, 3.000000000000000, radius = 1.000000000000000)
+}
+
+As an exercise, you may try to implement the rest of the methods required for \code{overlaps?} to also work on rectangles. The brave and adventurous amongst you can try supporting salinons as well.
+
+\section{Ambiguous Methods}
+A multi dispatches to the most \italic{specific} method appropriate for the types of the arguments. However, there are sometimes multiple methods that are equally specific, and it is ambiguous which method should be called. 
+
+As an example, consider the very strange shape, the \code{Blob}. The blob has the very strange property that \italic{it} overlaps with no shape, but \italic{every} shape overlaps with \italic{it}. 
+\code{
+defstruct Blob <: Shape
+defmethod print (o:OutputStream, b:Blob) : print(o, "Amorphous Blob")
+defmethod overlaps? (a:Blob, b:Shape) : false
+defmethod overlaps? (a:Shape, b:Blob) : true
+}
+Let's try it out.
+\code{
+defn try-overlaps () :
+   val pt-a = Point(0.0, 0.0)
+   val pt-b = Point(0.0, 3.0)
+   val circ-a = Circle(0.0, 3.0, 1.0)
+   val circ-b = Circle(3.0, 0.0, 1.0)
+   val circ-c = Circle(0.0, 0.0, 3.0)
+   val blob = Blob()
+   test-overlap(pt-a, blob)
+   test-overlap(circ-a, blob)
+   test-overlap(blob, pt-b)
+   test-overlap(blob, circ-b)
+}
+The program prints out
+\code{
+Point(0.000000000000000, 0.000000000000000)
+overlaps with
+Amorphous Blob
+
+Circle(0.000000000000000, 3.000000000000000, radius = 1.000000000000000)
+overlaps with
+Amorphous Blob
+
+Amorphous Blob
+does not overlap with
+Point(0.000000000000000, 3.000000000000000)
+
+Amorphous Blob
+does not overlap with
+Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
+}
+
+But the real question is: does a blob overlap with a blob? Let's see.
+\code{
+defn try-overlaps () :
+   val pt-a = Point(0.0, 0.0)
+   val pt-b = Point(0.0, 3.0)
+   val circ-a = Circle(0.0, 3.0, 1.0)
+   val circ-b = Circle(3.0, 0.0, 1.0)
+   val circ-c = Circle(0.0, 0.0, 3.0)
+   val blob = Blob()
+   test-overlap(pt-a, blob)
+   test-overlap(circ-a, blob)
+   test-overlap(blob, pt-b)
+   test-overlap(blob, circ-b)
+   test-overlap(blob, blob)
+}
+prints out
+\code{
+Point(0.000000000000000, 0.000000000000000)
+overlaps with
+Amorphous Blob
+
+Circle(0.000000000000000, 3.000000000000000, radius = 1.000000000000000)
+overlaps with
+Amorphous Blob
+
+Amorphous Blob
+does not overlap with
+Point(0.000000000000000, 3.000000000000000)
+
+Amorphous Blob
+does not overlap with
+Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
+
+Amorphous Blob
+FATAL ERROR: Ambiguous branch.
+   at shapes.stanza:47.16
+   at shapes.stanza:71.6
+   at shapes.stanza:87.3
+   at shapes.stanza:89.0
+}
+
+Stanza is telling us that there are multiple \code{overlaps?} methods that are equally specific for arguments of type \code{Blob} and \code{Blob}, and it does not know which one to call. To resolve this, users would have to define an \code{overlaps?} method specifically comparing \code{Blob} against \code{Blob}.
+
+\section{Revisiting Print}
+
+Now that you've been introduced to multis and methods, we can remove some of the mysteries surrounding the \code{print} function. So far, you've been told to follow a specific pattern to provide custom printing behaviour for your custom structs. For example, here is the print method defined for circles.
+\code{
+defmethod print (o:OutputStream, c:Circle) :
+   print(o, "Circle(%_, %_, radius = %_)" % [x(c), y(c), radius(c)])
+}
+
+But now you can see that it is simply attaching a new method to a multi called \code{print}. The \code{print} multi is defined in the \code{core} package
+\code{
+defmulti print (o:OutputStream, x) -> False
+}
+and takes two arguments. The first is an \code{OutputStream} object that represents the \italic{target} that you're printing to. The most common target is the standard output stream, i.e. the user's terminal. The second argument is the object that you're printing. 
+
+Thus far, you've only provided \code{print} methods for more specific types of \code{x} in order to print different types of objects. But later, you'll see how you can provide \code{print} methods for more specific types of \code{o} in order to print to different targets. And all of this works seamlessly due to the power of multiple dispatch.
+
+\section{The New Expression}
+The new expression is Stanza's fundamental construct for creating objects. All objects in Stanza are either literals (e.g. 1, 'x', "Timon"), or are created (directly or indirectly) by the new expression. 
+
+Let's define a type called \code{Stack} that represents a stack into which we can push and pop strings. Start a new file called \code{stack.stanza}. Here's the type definition for \code{Stack} and also two multis for the push and pop operations to which we will later attach methods, and a third multi for checking whether the stack is empty.
+\code{
+deftype Stack
+defmulti push (s:Stack, x:String) -> False
+defmulti pop (s:Stack) -> String
+defmulti empty? (s:Stack) -> True|False
+}
+
+Let's provide it with custom printing behaviour.
+\code{
+defmethod print (o:OutputStream, s:Stack) :
+   print(o, "Stack")
+}
+
+Now in our main function we will create a single \code{Stack} object and print it out.
+\code{
+defn main () :
+   val s = new Stack
+   println("s is a %_." % [s])
+
+main()
+}
+
+Compile the program and run it. It should print out
+\code{
+s is a Stack.
+}
+
+Thus the expression
+\code{
+new Stack
+}
+creates a new \code{Stack} object. We say that it creates a new \italic{instance} of type \code{Stack}. 
+
+But this stack object thus far isn't terribly useful. The only thing it can do is print itself. Stanza does allow us to call \code{push} and \code{pop} on the stack, but it will just crash because we haven't attached any methods yet. 
+
+\subsection{Instance Methods}
+The new expression allows us to define \italic{instance} methods for the object being created. Here is an instance method for the \code{empty?} multi for the stack being created.
+\code{
+defn main () :
+   val s = new Stack :
+      defmethod empty? (this) :
+         true
+   println("s is a %_." % [s])
+   println("stack is empty? %_." % [empty?(s)])
+
+main()
+}
+We haven't defined any methods for pushing strings to the stack yet, so the \code{empty?} method simply returns \code{true} for now. Compile the program and run it. It should print out
+\code{
+s is a Stack.
+stack is empty? true.
+}
+
+The instance method declaration looks similar to the standard method declarations that you've already learned except for one major difference. The \italic{this} argument is very special. In an instance method declaration, \code{this} refers specifically to the object currently being created by new. In this case, the object being created is \code{s}. So the instance method is saying: if \code{empty?} is called on \code{s} then return \code{true}. Exactly one of the arguments of every instance method must be named \code{this}.
+
+In fact, now that we've learned about instance methods, let's redefine the \code{print} method as an instance method for \code{s}. Delete the top-level print method, and add the following.
+\code{
+defn main () :
+   val s = new Stack :
+      defmethod empty? (this) :
+         true
+      defmethod print (o:OutputStream, this) :
+         print(o, "Stack")
+   println("s is a %_." % [s])
+   println("stack is empty? %_." % [empty?(s)])
+
+main()
+}
+Compile and run the program and verify that it prints the same message as before.
+
+\subsection{The Push and Pop Methods}
+We will now define the methods for \code{push} and \code{pop}. The stack contents will be held in an array, and we'll keep track of how many items are currently in the stack using a \code{size} variable. The array will be of length 10, so the maximum number of strings that the stack can hold is 10. Declare the following \italic{within} the \code{main} function.
+\code{
+val items = Array<String>(10)
+var size = 0
+}
+
+Next we'll declare the \code{push} method. Declare the following within the new expression.
+\code{
+defmethod push (this, x:String) :
+   if size == 10 : fatal("Stack is full!")
+   items[size] = x
+   size = size + 1
+}
+The \code{push} method first ensures that the stack is not full. Then it stores \code{x} in the next slot in the array and increments the stack's size by one.
+
+Here's the corresponding \code{pop} method.
+\code{
+defmethod pop (this) :
+   if size == 0 : fatal("Stack is empty!")
+   size = size - 1
+   items[size]
+}
+The \code{pop} method first ensures that the stack is not empty. Then it decrements the stack's size by one, and returns the top item in the stack.
+
+Here's the revised \code{empty?} method.
+\code{
+defmethod empty? (this) :
+   size == 0
+}
+The stack is empty if its size is zero.
+
+And finally, here's the revised \code{print} method.
+\code{
+defmethod print (o:OutputStream, this) :
+   print(o, "Stack containing [")
+   for i in 0 to size do :
+      print(o, items[i])
+      if i < size - 1 :
+         print(o, " ")
+   print(o, "]")   
+}
+It iterates through and prints all the strings currently in the stack.
+
+Putting all the pieces together gives us the following \code{main} function. To test the stack, we try pushing and popping a few strings.
+\code{
+defn main () :
+   val items = Array<String>(10)
+   var size = 0
+   val s = new Stack :
+      defmethod push (this, x:String) :
+         if size == 10 : fatal("Stack is full!")
+         items[size] = x
+         size = size + 1
+      defmethod pop (this) :
+         if size == 0 : fatal("Stack is empty!")
+         size = size - 1
+         items[size]
+      defmethod empty? (this) :
+         size == 0
+      defmethod print (o:OutputStream, this) :
+         print(o, "Stack containing [")
+         for i in 0 to size do :
+            print(o, items[i])
+            if i < size - 1 :
+               print(o, " ")
+         print(o, "]")   
+
+   println("1.")
+   println(s)
+
+   println("2.")   
+   push(s, "Pumbaa")
+   println(s)
+   
+   println("3.")   
+   push(s, "and")
+   push(s, "Timon")
+   println(s)
+   
+   println("4.")   
+   val x = pop(s)
+   println("Popped %_ from stack." % [x])
+   println(s)
+
+   println("5.")
+   val y = pop(s)
+   println("Popped %_ from stack." % [y])
+   println(s)
+
+main()   
+}
+Compile and run the program. It should print out
+\code{
+1.
+Stack containing []
+2.
+Stack containing [Pumbaa]
+3.
+Stack containing [Pumbaa and Timon]
+4.
+Popped Timon from stack.
+Stack containing [Pumbaa and]
+5.
+Popped and from stack.
+Stack containing [Pumbaa]
+}
+
+\section{Constructor Functions}
+In the above example, we created a stack called \code{s} directly in the \code{main} function. You may be thinking that this seems like a lot of work to create a single stack! What if we need to create multiple stacks? 
+
+The solution is to simply move the stack construction code into a new function and call it once for each stack we want to create. Here is a function called \code{make-stack} that accepts a \code{capacity} argument for specifying the maximum size supported by the stack.
+\code{
+defn make-stack (capacity:Int) -> Stack :
+   val items = Array<String>(capacity)
+   var size = 0
+   new Stack :
+      defmethod push (this, x:String) :
+         if size == capacity : fatal("Stack is full!")
+         items[size] = x
+         size = size + 1
+      defmethod pop (this) :
+         if size == 0 : fatal("Stack is empty!")
+         size = size - 1
+         items[size]
+      defmethod empty? (this) :
+         size == 0
+      defmethod print (o:OutputStream, this) :
+         print(o, "Stack containing [")
+         for i in 0 to size do :
+            print(o, items[i])
+            if i < size - 1 :
+               print(o, " ")
+         print(o, "]")   
+}
+
+Let's change our main function to create two stacks and push different strings into them.
+\code{
+defn main () :
+   val s1 = make-stack(10)
+   val s2 = make-stack(10)
+
+   println("1.")
+   push(s1, "Timon")
+   push(s1, "Pumbaa")
+   push(s1, "Nala")
+   push(s2, "Ryu")
+   push(s2, "Ken")
+   push(s2, "Makoto")
+   println(s1)
+   println(s2)
+
+   println("2.")
+   println("Popped %_ from s1." % [pop(s1)])
+   println("Popped %_ from s2." % [pop(s2)])
+   println(s1)
+   println(s2)
+
+   println("3.")
+   println("Popped %_ from s1." % [pop(s1)])
+   println("Popped %_ from s2." % [pop(s2)])
+   println(s1)
+   println(s2)
+
+main()   
+}
+
+Compile and run the program. It should print out
+\code{
+1.
+Stack containing [Timon Pumbaa Nala]
+Stack containing [Ryu Ken Makoto]
+2.
+Popped Nala from s1.
+Popped Makoto from s2.
+Stack containing [Timon Pumbaa]
+Stack containing [Ryu Ken]
+3.
+Popped Pumbaa from s1.
+Popped Ken from s2.
+Stack containing [Timon]
+Stack containing [Ryu]
+}
+Notice especially that the two stacks created by the separate calls to \code{make-stack} contain different strings and operate independently of each other. 
+
+We call \code{make-stack} a \italic{constructor} function for \code{Stack} objects because it returns newly created \code{Stack} objects. If you are familiar with the object systems in other languages it might surprise you to see that there is nothing particularly special about constructor functions in Stanza. They're just regular functions. This lack of distinction between constructors and functions is another contributing factor to Stanza's flexibility. Constructors in class based languages are typically more "special" than regular functions, and while any user can define functions for a class, only the library's author can define more constructors for a class.
+
+As a note on style, we named the constructor function for \code{Stack} objects \code{make-stack} in order to avoid confusing you. But the idiomatic Stanza style is to give the same name to the constructor function as the type of object it is constructing. So \code{make-stack} would simply be named \code{Stack}, and you will distinguish based on context whether a reference to \code{Stack} refers to the type or the function.
+
+As a reminder, even with the \code{new} expression, you are still encouraged to keep the number of fundamental operations for a type small, and then implement as much functionality as derived operations as possible.
+
+As an exercise, try implementing a function called \code{UnboundedStack} that constructs a \code{Stack} object with no maximum capacity. Then try it in place of \code{Stack}, and observe that there is no behavioural difference (save for capacity limitations) between stacks created with \code{UnboundedStack} and stacks created with \code{Stack}. 
+
+\section{Revisiting Defstruct}
+\code{defmulti}, \code{defmethod}, \code{deftype} and \code{new} forms the fundamental constructs of Stanza's class-less object system. The \code{defstruct} construct that you have been using thus far is merely a syntactic shorthand for a specific usage pattern of \code{new}. Let's take a peek at its internals.
+
+Here is a struct definition for a \code{Dog} object with a name field and a mutable breed field. 
+\code{
+defstruct Dog <: Animal :
+   name: String
+   breed: String with: (setter => set-breed)
+}
+
+The above can be equivalently written as
+\code{
+deftype Dog <: Animal
+defmulti name (d:Dog) -> String
+defmulti breed (d:Dog) -> String
+defmulti set-breed (d:Dog, breed:String) -> False
+
+defn Dog (name:String, initial-breed:String) -> Dog :
+   var breed = initial-breed
+   new Dog :
+      defmethod name (this) : name
+      defmethod breed (this) : breed
+      defmethod set-breed (this, b:String) : breed = b
+}
+Thus, the \code{defstruct} construct expands to
+\list{
+\item a type definition,
+\item getter functions for each of its fields,
+\item setter functions for each of its mutable fields, and
+\item a constructor function for creating instances of the type.
+}

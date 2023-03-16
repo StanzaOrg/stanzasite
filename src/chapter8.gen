@@ -1,0 +1,796 @@
+\chapter{Parametric Polymorphism}{
+This chapter teaches you how to define types that are themselves parameterized by other types. After this chapter, you will be able to define datastructures and libraries that are as general and as powerful as the ones included with Stanza.
+}
+This chapter will introduce you to the concept of \italic{parametric polymorphism} and show you how to parameterize your functions using \italic{type arguments}, and your types using \italic{type parameters}. 
+
+\section{The Need for Polymorphism}
+Thus far, none of the functions you have written so far have been parameterized by type. Here is an example implementation of a function that reverses a list of integers.
+\code{
+defn reverse-list (xs:List<Int>) -> List<Int> :
+   if empty?(xs) :
+      xs
+   else :
+      append(
+         reverse-list(tail(xs))
+         List(head(xs)))
+}
+But notice that it only works on integers. Thus the following does not compile.
+\code{
+reverse-list(List("Timon", "and", "Pumbaa"))
+}
+It gives this error.
+\code{
+Cannot call function reverse-list of type List<Int> -> List<Int> 
+with arguments of type (FullList<String>).
+}
+
+To handle this, we can write an overloaded version of \code{reverse-list} that accepts a list of strings.
+\code{
+defn reverse-list (xs:List<String>) -> List<String> :
+   if empty?(xs) :
+      xs
+   else :
+      append(
+         reverse-list(tail(xs))
+         List(head(xs)))
+}
+Now \code{reverse-list} will work on both integers and strings. So the following
+\code{
+println(reverse-list(List(1, 2, 3)))
+println(reverse-list(List("Timon", "and", "Pumbaa")))
+}
+compiles and prints out
+\code{
+(3 2 1)
+("Pumbaa" "and" "Timon")
+}
+However, the code for the string version of \code{reverse-list} is identical to the integer version, save for its type signature. This is an obvious duplication of effort. Also, this is clearly a subpar solution. What if we next want to reverse a list of characters? It is not practical to define an overloaded version of \code{reverse-list} for every type of list we wish to reverse.
+
+\subsection{The Limitations of the ? Type}
+What we need is the ability to call \code{reverse-list} on lists of \italic{any} type. Well, we've already learned about one mechanism that will allow us to do this: the \code{?} type. So let's replace our two overloaded \code{reverse-list} functions with a single one that accepts a \code{List<?>} as its argument.
+\code{
+defn reverse-list (xs:List) -> List :
+   if empty?(xs) :
+      xs
+   else :
+      append(
+         reverse-list(tail(xs))
+         List(head(xs)))
+}
+Recall that the default type parameter is \code{?} for a type without explicit type parameters. Thus \code{List} is equivalent to \code{List<?>}. The above definition of \code{reverse-list} \italic{will} allow us to call both lists of integers and strings. Try out the following code again
+\code{
+println(reverse-list(List(1, 2, 3)))
+println(reverse-list(List("Timon", "and", "Pumbaa")))
+}
+and verify that it still prints out
+\code{
+(3 2 1)
+("Pumbaa" "and" "Timon")
+}
+It seems to work fine now on these cases. What is the problem? 
+
+The problem is in the type of the result of the \code{reverse-list} function. \code{reverse-list} is annotated to return a \code{List<?>}. Thus the following obviously incorrect code will still compile.
+\code{
+val xs = reverse-list(List("Timon", "and", "Pumbaa"))
+println(head(xs) + 1)
+} 
+When the compiled program is ran, it crashes with this error.
+\code{
+FATAL ERROR: Cannot cast value to type.
+   at core/core.stanza:2619.12
+   at test.stanza:15.8
+}
+This is disappointing. The reverse of a list of strings is obviously still a list of strings. So \code{head(xs)} should be a \code{String}, and Stanza should have stopped us from trying to add an integer to it. More precisely, what we need is the ability for \code{reverse-list} to accept lists of any type, but have it also return lists of the \italic{same} type.
+
+In place of \code{reverse-list}, we'll instead call the \code{reverse} function included in Stanza's core library, and see that it does not suffer from these problems.
+\code{
+val xs = reverse(List("Timon", "and", "Pumbaa"))
+println(head(xs) + 1)
+} 
+Attempting to compile the above gives this error.
+\code{
+No appropriate function plus for arguments of type (String, Int). 
+Possibilities are:
+   plus: (Byte, Byte) -> Byte at core/core.stanza:2488.21
+   plus: (Int, Int) -> Int at core/core.stanza:2619.12
+   plus: (Long, Long) -> Long at core/core.stanza:2688.21
+   plus: (Float, Float) -> Float at core/core.stanza:2742.21
+   plus: (Double, Double) -> Double at core/core.stanza:2792.21
+}
+which is much more reassuring. We'll now see how we can write such functions ourselves. 
+
+\section{Explicit Type Arguments}
+Here is how to write a \italic{polymorphic} \code{reverse-list} function that takes an explicit type argument.
+\code{
+defn reverse-list<ElementType> (xs:List<ElementType>) -> List<ElementType> :
+   if empty?(xs) :
+      xs
+   else :
+      append(
+         reverse-list<ElementType>(tail(xs))
+         List(head(xs)))
+}
+\code{reverse-list} takes a single type argument called \code{ElementType} that represents the type of the elements inside the \code{xs} list. Now we need to provide a type argument to \code{reverse-list} when we call it.
+\code{
+reverse-list<Int>(List(1, 2, 3))
+}
+What that does is \italic{instantiate} a version of \code{reverse-list} by replacing \code{ElementType} with \code{Int} in its type signature. Thus the instantiated function has type
+\code{
+List<Int> -> List<Int>
+}
+and we then call it with \code{List(1, 2, 3)}. 
+Let's use our polymorphic function to reverse lists of integers and strings.
+\code{
+val xs = reverse-list<Int>(List(1, 2, 3))
+val ys = reverse-list<String>(List("Timon", "and", "Pumbaa"))
+println(xs)
+println(ys)
+}
+Compiling and running the above prints out the same message as before.
+\code{
+(3 2 1)
+("Pumbaa" "and" "Timon")
+}
+
+Let's also verify that the return type of \code{reverse-list} is of the proper type.
+\code{
+val xs = reverse-list<String>(List("Timon", "and", "Pumbaa"))
+println(head(xs) + 1)
+} 
+Attempting to compile the above gives this error.
+\code{
+No appropriate function plus for arguments of type (String, Int). 
+Possibilities are:
+   plus: (Byte, Byte) -> Byte at core/core.stanza:2488.21
+   plus: (Int, Int) -> Int at core/core.stanza:2619.12
+   plus: (Long, Long) -> Long at core/core.stanza:2688.21
+   plus: (Float, Float) -> Float at core/core.stanza:2742.21
+   plus: (Double, Double) -> Double at core/core.stanza:2792.21
+}
+So the return type is correct, and Stanza properly catches our mistakes.
+
+Note that we are responsible for instantiating a correct version of \code{reverse-list} to call. If we pass in the wrong type arguments, 
+\code{
+reverse-list<String>(List(1, 2, 3))
+}
+then the program will fail to compile. The above gives this error when we attempt to compile it.
+\code{
+Cannot call function reverse-list of type List<String> -> List<String> 
+with arguments of type (FullList<Int>).
+}
+
+As a comment on programming style, the purpose of each type argument in a polymorphic function is typically quite obvious. Thus programmers do not feel the need to give them descriptive names. Here is how \code{reverse-list} would commonly be written.
+\code{
+defn reverse-list<T> (xs:List<T>) -> List<T> :
+   if empty?(xs) :
+      xs
+   else :
+      append(
+         reverse-list<T>(tail(xs))
+         List(head(xs)))
+}
+The vast majority of type arguments are simply named \code{T} (short for \code{Type}), or \code{S} (because it's a letter close to \code{T}). 
+
+\section{Captured Type Arguments}
+Our polymorphic \code{reverse-list} function can now reverse lists of any type and also correctly returns a list of the same type. It's just a little cumbersome to use because we have to pass in the element type of the list we're reversing each time. This is because \code{T} is declared as an \italic{explicit} type argument. We'll see now how to have Stanza automatically infer the type argument by declaring it as a \italic{captured} type argument.
+Here is a polymorphic \code{reverse-list} written using a \italic{captured} type argument.
+\code{
+defn reverse-list<?T> (xs:List<?T>) -> List<T> :
+   if empty?(xs) :
+      xs
+   else :
+      append(
+         reverse-list(tail(xs))
+         List(head(xs)))
+}
+A captured type argument is declared with a \code{?} prefix, which indicates that it is not passed in explicitly. Instead, it is \italic{captured} from the types of the arguments it is called with. The type signature above says that \code{reverse-list} requires a list to be passed in for \code{xs}. Capture \code{T} from the element type of \code{xs}. 
+
+Now we can call \code{reverse-list} without passing in an explicit type argument.
+\code{
+reverse-list(List(1, 2, 3))
+}
+The argument \code{List(1, 2, 3)} has type \code{List<Int>}, and thus the type argument \code{T} captures the element type \code{Int}. 
+
+In the following call,
+\code{
+reverse-list(List("Timon", "and", "Pumbaa"))
+}
+the argument \code{List("Timon", "and", "Pumbaa")} has a type \code{List<String>}, and thus the type argument \code{T} captures the element type \code{String}. 
+
+Let's try our example of reversing both integer lists and string lists again.
+\code{
+val xs = reverse-list(List(1, 2, 3))
+val ys = reverse-list(List("Timon", "and", "Pumbaa"))
+println(xs)
+println(ys)
+}
+Notice that we no longer need to pass in type arguments. Compiling and running the above prints out
+\code{
+(3 2 1)
+("Pumbaa" "and" "Timon")
+}
+
+We can also verify that the return type is correct.
+\code{
+val xs = reverse-list(List("Timon", "and", "Pumbaa"))
+println(head(xs) + 1)
+}
+Attempting to compile the above gives this error.
+\code{
+No appropriate function plus for arguments of type (String, Int). 
+Possibilities are:
+   plus: (Byte, Byte) -> Byte at core/core.stanza:2488.21
+   plus: (Int, Int) -> Int at core/core.stanza:2619.12
+   plus: (Long, Long) -> Long at core/core.stanza:2688.21
+   plus: (Float, Float) -> Float at core/core.stanza:2742.21
+   plus: (Double, Double) -> Double at core/core.stanza:2792.21
+}
+
+Thus the \code{reverse-list} function is now polymorphic and it does not require any explicit type arguments. We've finished generalizing \code{reverse-list} at this point, and it actually now has the same type signature as the \code{reverse} function in the core library.
+
+\subsection{Capture Locations}
+Here's another example polymorphic function.
+\code{
+defn store-in-odd-slots<?T> (xs:Array<?T>, v:T) -> False :
+   for i in 1 to length(xs) by 2 do :
+      xs[i] = v
+}
+\code{store-in-odd-slots} is a polymorphic function that accepts an array, \code{xs}, and an item, \code{v}, and stores \code{v} at every odd index in \code{xs}. Let's try it out.
+\code{
+val xs = to-array<String>(["Patrick", "Sunny", "Luca", "Whiskey", "Emmy", "Rummy"])
+store-in-odd-slots(xs, "and")
+println(xs)
+}
+prints out
+\code{
+["Patrick" "and" "Luca" "and" "Emmy" "and"]
+}
+
+Let's now take a closer look at the type signature of \code{store-in-odd-slots}.
+\code{
+defn store-in-odd-slots<?T> (xs:Array<?T>, v:T) -> False
+}
+The \code{?T} following the function name
+\code{
+store-in-odd-slots<?T>
+}
+means that the function is polymorphic and accepts a single captured type argument. The argument list
+\code{
+(xs:Array<?T>, v:T)
+}
+contains two references to \code{T}, but only one of them is prefixed with a \code{?}. This means that \code{T} is captured \italic{only} from the element type of \code{xs}. 
+
+The capture location for \code{T} was chosen carefully. Consider the following type definitions.
+\code{
+deftype Shape
+deftype Circle <: Shape
+}
+where all circles are also shapes, but not all shapes are circles. 
+
+The following usage of \code{store-in-odd-slots}
+\code{
+val shapes = Array<Shape>(10)
+store-in-odd-slots(shapes, new Circle)
+}
+compiles correctly. \code{T} is captured from the element type of \code{Array<Shape>}, and is thus \code{Shape}. The instantiated \code{store-in-odd-slots} therefore has type
+\code{
+(Array<Shape>, Shape) -> False
+}
+and can be suitably called with \code{shapes} and \code{new Circle}.
+
+But this next usage
+\code{
+val circles = Array<Circle>(10)
+store-in-odd-slots(circles, new Shape)
+}
+fails with this error
+\code{
+Cannot call function store-in-odd-slots of type (Array<Circle>, Circle) -> False
+with arguments of type (Array<Circle>, Shape).
+}
+This is consistent with our intuition. You cannot store an arbitrary shape into an array that can only hold circles. As an exercise, think about what would happen if \code{store-in-odd-slots} was instead declared the following way.
+\code{
+defn store-in-odd-slots<?T> (xs:Array<T>, v:?T) -> False
+}
+
+As a general rule of thumb, the majority of polymorphic functions operate on a collection of some sort. The type argument is \italic{almost always} captured from the element type of the collection. 
+
+\subsection{Multiple Capture Locations}
+After reading the previous section, you might be naturally wondering what happens when there are \italic{multiple} capture locations. If there are multiple capture locations, then the final captured type is the \italic{union} of all the types captured from each location.
+
+Here is an example of a function that makes use of two capture locations.
+\code{
+defn append-lists<?T> (xs:List<?T>, ys:List<?T>) -> List<T> :
+   if empty?(xs) : ys
+   else : cons(head(xs), append-lists(tail(xs), ys))
+}
+The type argument \code{T} is captured from both the element type of \code{xs} \italic{and} the element of type \code{ys}. Thus if we call \code{append-lists} on a list of integers and a list of strings,
+\code{
+val xs = List(1, 2, 3)
+val ys = List("Timon", "and", "Pumbaa")
+val zs = append-lists(xs, ys)
+}
+then the resulting type of \code{zs} is \code{List<Int|String>}. 
+
+\subsection{Example: map-list}
+Let's try writing our own polymorphic \code{map} function on lists. We'll call ours \code{map-list}. \code{map-list} accepts a function, \code{f}, and a list, \code{xs}, and returns a new list containing the results of calling \code{f} on each item in \code{xs}. To start off, here's the function definition without any type annotations.
+\code{
+defn map-list (f, xs) :
+   if empty?(xs) :
+      List()
+   else :
+      val y = f(head(xs))
+      val ys = map-list(f, tail(xs))
+      cons(y, ys)
+}
+Let's verify that it works as intended.
+\code{
+val xs = to-list(["Timon", "and", "Pumbaa" "are", "good", "friends"])
+val lengths = map-list(length, xs)
+println(lengths)
+}
+Compiling and running the above prints out
+\code{
+(5 3 6 3 4 7)
+}
+
+Let's start off with figuring out the type of \code{xs}, because it seems easier. It's a list for sure, and \code{map-list} should be able to work on lists of any type. So \code{xs} is therefore of type
+\code{
+xs:List<?T>
+}
+and \code{T} is a captured type argument for \code{map-list}. 
+
+Next, let's figure out the type of \code{f}. It's a function for sure, and it's called with only a single argument. So it's at least
+\code{
+f:? -> ?
+}
+Next we know that \code{f} is called with items from \code{xs}, which is a list of \code{T}'s, so \code{f} has to accept \code{T}'s. Now we know it's at least
+\code{
+f:T -> ?
+}
+Finally, what is \code{f} allowed to return? Well, \code{f} is allowed to return anything actually. So let's introduce another captured type argument. The final type of \code{f} is
+\code{
+f:T -> ?S
+}
+
+Now that we know the types of its arguments, the last step is to figure out what \code{map-list} returns. We know that it returns a list, and we also know that the list contains the results of calling \code{f}. Since we now know that \code{f} returns \code{S}'s, therefore \code{map-list} returns a list of \code{S}'s. Here is the complete type signature for \code{map-list}.
+\code{
+defn map-list<?T,?S> (f:T -> ?S, xs:List<?T>) -> List<S>
+}
+
+Let's try our test code again with our typed \code{map-list} function and ensure it works as expected.
+\code{
+val xs = to-list(["Timon", "and", "Pumbaa" "are", "good", "friends"])
+val lengths = map-list(length, xs)
+println(lengths)
+}
+Running the above prints out
+\code{
+(5 3 6 3 4 7)
+}
+as before. 
+
+To double check the inferred return type of \code{map-list}, let's cast \code{lengths} to an obviously incorrect type, and read what Stanza says about its type. 
+\code{
+lengths as False
+}
+Compiling the above gives us the error
+\code{
+Cannot cast expression of type List<Int> to type False.
+}
+So Stanza says that \code{lengths} is a list of integers, which is correct. 
+
+\subsection{Example: map-both}
+Here's some more practice on using captured type arguments. Here is the un-annotated definition for the \code{map-both} function.
+\code{
+defn map-both (f, g, xs) :
+   for x in xs map :
+      [f(x), g(x)]
+}
+\code{map-both} accepts two functions, \code{f} and \code{g}, and a list, \code{xs}, and returns a list containing two-element tuples. The first elements in all the tuples are the results of calling \code{f} on each item in \code{xs}, and the second elements in all the tuples are the results of calling \code{g} on each item in \code{xs}.
+
+Similar to before, the list, \code{xs}, is the easiest argument to figure out the type signature for.
+\code{
+xs:List<?T>
+}
+\code{f} needs to be a function that can be called with items from \code{xs}, and can return anything.
+\code{
+f:T -> ?S
+}
+\code{g} also needs to be a function that can called with items from \code{xs}, and can also return anything. 
+\code{
+g:T -> ?R
+}
+\code{map-both} returns a list of tuples. The first elements in the tuples are results of calling \code{f}, and the second elements are results of calling \code{g}.
+\code{
+List<[S, R]>
+}
+
+Thus the complete definition for \code{map-both} is
+\code{
+defn map-both<?T,?S,?R> (f:T -> ?S, g:T -> ?R, xs:List<?T>) -> List<[S, R]> :
+   for x in xs map :
+      [f(x), g(x)]
+}
+
+Let's try it out on a list of strings.
+\code{
+val xs = to-list(["Timon", "and", "Pumbaa", "are", "good", "friends"])
+val zs = map-both(
+   xs,
+   fn (x) : x[2]
+   fn (y) : length(y) * 2)
+println(zs)
+}
+which prints out
+\code{
+(['m' 10] ['d' 6] ['m' 12] ['e' 6] ['o' 8] ['i' 14])
+}
+
+Let's cast \code{zs} to something silly to see what Stanza says about its type. Attempting to compile the following
+\code{
+zs as False
+}
+gives us this error.
+\code{
+Cannot cast expression of type List<[Char, Int]> to type False.
+}
+So \code{zs} has type \code{List<[Char, Int]>}, which is what we expect.
+
+\section{Parametric Types}
+You have been shown how to define your own types using \code{deftype} and also the shorthand \code{defstruct}. But none of the types you've defined thus far accept \italic{type parameters}. This stood out the most in our definition of the \code{Stack} type which was only able to store \italic{String} objects. We'll now learn how to declare our own \italic{parametric types}.
+
+\subsection{Declaring a Parametric Type}
+Here is an example of a simple type that takes two type parameters. 
+\code{
+deftype Either<L,R>
+}
+\code{Either} contains two wrapped objects, a left object of type \code{L}, and a right object of type \code{R}. 
+
+This is all there is to defining a parametric type! The rest of this section covers mechanisms that have already been introduced, but we'll go through them in the context of the \code{Either} type for practice.
+
+\subsection{Declaring Multis}
+Let's define the fundamental operations for an \code{Either} object, which are simply getter functions for retrieving the two wrapped objects.
+\code{
+defmulti left<?L> (e:Either<?L,?>) -> L
+defmulti right<?R> (e:Either<?,?R>) -> R
+}
+Notice that the \code{left} and \code{right} functions each take only a single type argument. The other type parameter for the \code{Either} object is left as \code{?} to indicate that it is free to be anything.
+
+\subsection{Creating Either Objects}
+Now let's write a constructor function for creating \code{Either} objects. We'll start with a function that can only create \code{Either<Int,String>} objects.
+\code{
+defn Either (l:Int, r:String) :
+   new Either<Int,String> :
+      defmethod left (this) : l
+      defmethod right (this) : r
+}
+Let's try it out.
+\code{
+val e = Either(42, "Timon")
+println("The left object is %_." % [left(e)])
+println("The right object is %_." % [right(e)])
+}
+prints out
+\code{
+The left object is 42.
+The right object is Timon.
+}
+
+\subsection{Polymorphic Constructor Function}
+Now that we can successfully create specific \code{Either} objects, let's generalize our constructor function by making it polymorphic using type arguments. The following declares \code{Either} as taking two explicit type arguments, one for each wrapped object.
+\code{
+defn Either<L,R> (l:L, r:R) :
+   new Either<L,R> :
+      defmethod left (this) : l
+      defmethod right (this) : r
+}
+Now \code{Either} objects are created in the following way.
+\code{
+val e = Either<Int,String>(42, "Timon")
+}
+The way in which \code{Either} objects are created now resembles how we've been creating many of the other types included in the core library, such as arrays and vectors. This is not a coincidence. The construction function for arrays and vectors are also just regular functions that take explicit type arguments and return instances of parametric types.
+
+\subsection{Parametric Structs}
+The \code{defstruct} expression also accepts type parameters for creating parametric structs. As mentioned previously, the \code{defstruct} expression is simply a syntactic shorthand for declaring a new type, getter functions for its fields, and a default construction function. Thus all the code we've written previously to define the \code{Either} type can be neatly expressed as
+\code{
+defstruct Either<L,R> :
+   left: L
+   right: R
+}
+
+\subsection{Constructor Function with Captured Arguments}
+Specifically for creating \code{Either} objects, it is also not necessary to have the user explicitly specify the types of the left and right objects. Let's make the constructor function more convenient to call by using captured type arguments.
+\code{
+defn Either<?L,?R> (l:?L, r:?R) :
+   new Either<L,R> :
+      defmethod left (this) : l
+      defmethod right (this) : r
+}
+Now we can create an \code{Either} object like this
+\code{
+val e = Either(42, "Timon")
+}
+and have Stanza automatically infer that \code{e} is an \code{Either<Int,String>} based on the types of \code{42} and \code{"Timon"}.
+
+\subsection{When \italic{not} to Use Captured Arguments}
+We showed above how to write a constructor function using captured arguments that did not require the left and right object types to be passed in explicitly to \code{Either}. This makes the constructor function for \code{Either} objects very similar to the constructor function for \code{List} objects, which also does not require any explicit type arguments. This is \italic{not} always an appropriate thing to do.
+
+Let us suppose that \code{Either} is a \italic{mutable} datastructure; that we can change the left and right objects after the object has been created. The type definition for \code{Either} would stay the same, but it would gain two more fundamental operations.
+\code{
+defmulti left<?L> (e:Either<?L,?>) -> L
+defmulti right<?R> (e:Either<?,?R>) -> R
+defmulti set-left<?L> (e:Either<?L,?>, v:L) -> False
+defmulti set-right<?R> (e:Either<?,?R>, v:R) -> False
+}
+Notice, especially, the capture locations of the type arguments in the setter functions. 
+
+The constructor function would be changed to now accept not the left and right objects, but the \italic{initial} left and right objects, since they may change later on.
+\code{
+defn Either<?L,?R> (l0:?L, r0:?R) :
+   var l = l0
+   var r = r0
+   new Either<L,R> :
+      defmethod left (this) : l
+      defmethod right (this) : r
+      defmethod set-left (this, v:L) : l = v
+      defmethod set-right (this, v:R) : r = v
+}
+
+For the next part, let us again assume that we have definitions for some basic shapes.
+\code{
+deftype Shape
+deftype Circle <: Shape
+deftype Rectangle <: Shape
+
+defmethod print (o:OutputStream, c:Circle) : print(o, "Circle")
+defmethod print (o:OutputStream, r:Rectangle) : print(o, "Rectangle")
+}
+
+Let's try creating a mutable \code{Either} object now.
+\code{\#{
+defn my-favorite-shape () -> Shape :
+   new Circle
+
+val e = Either(42, my-favorite-shape())
+println("After creation:")
+println("The left object is %_" % [left(e)])
+println("The right object is %_" % [right(e)])
+
+set-left(e, 256)
+set-right(e, new Rectangle)
+println("\nAfter mutation:")
+println("The left object is %_" % [left(e)])
+println("The right object is %_" % [right(e)])
+\#}}
+Compiling and running the above prints out
+\code{
+After creation:
+The left object is 42
+The right object is Circle
+
+After mutation:
+The left object is 256
+The right object is Rectangle
+}
+
+Everything seems to be working, but pay attention to what happens next. 
+
+The type signature for \code{my-favorite-shape} is not as precise as it could be. It's annotated to return \code{Shape}, but it's more precise to say that it returns \code{Circle}. So let's improve \code{my-favorite-shape}'s type signature.
+\code{
+defn my-favorite-shape () -> Circle :
+   new Circle
+}
+Now try compiling and running the program again. It will now give this error.
+\code{
+Cannot call function set-right of type (Either<?, Circle>, Circle) -> False 
+with arguments of type (Either<Int, Circle>, Rectangle).
+}
+
+What is going on? Why would changing (actually improving) the type signature for \code{my-favorite-shape} affect the later call to \code{set-right}? 
+
+The problem, as is evident in the error message, is that the inferred type for \code{e} is \code{Either<Int, Circle>}. This is not right. Even though the \italic{initial} right object was a \code{Circle}, that doesn't mean we want \code{e} to \italic{only ever} hold \code{Circle} objects as its right object.
+
+This is one of those cases where using a captured type argument is inappropriate. For a mutable \code{Either} object, the types of the left and right objects should be passed in explicitly.
+
+Here is the constructor function rewritten to use explicit type arguments.
+\code{
+defn Either<L,R> (l0:L, r0:R) :
+   var l = l0
+   var r = r0
+   new Either<L,R> :
+      defmethod left (this) : l
+      defmethod right (this) : r
+      defmethod set-left (this, v:L) : l = v
+      defmethod set-right (this, v:R) : r = v
+}
+And here is our original test code rewritten to pass in explicit type arguments.
+\code{\#{
+defn my-favorite-shape () -> Shape :
+   new Circle
+
+val e = Either<Int, Shape>(42, my-favorite-shape())
+println("After creation:")
+println("The left object is %_" % [left(e)])
+println("The right object is %_" % [right(e)])
+
+set-left(e, 256)
+set-right(e, new Rectangle)
+println("\nAfter mutation:")
+println("The left object is %_" % [left(e)])
+println("The right object is %_" % [right(e)])
+\#}}
+Verify that it still compiles and runs correctly. 
+
+At this point, we can try making the same change to \code{my-favorite-shape}'s type signature.
+\code{
+defn my-favorite-shape () -> Circle :
+   new Circle
+}
+This time, however, the program still compiles and continues to run as before. 
+
+Here are the basic rules of thumb for choosing between using explicit or captured type arguments. If you're creating an immutable object then feel free to use captured type arguments. If you're creating a mutable object, then use explicit type arguments. 
+
+These issues surrounding captured type arguments and mutable objects is also why \code{to-array} and \code{to-vector} require explicit type arguments and why \code{to-list} does not.
+
+\section{Match Expressions and Type Erasure}
+One subtlety concerning Stanza's parametric type system is a concept called \italic{type erasure}. It roughly means that, given a program, if we replace every type argument with the \code{?} type, it should still run and compute the same result (providing that the original program doesn't fail). Said another way, the setting of a type argument can never change what is computed by a program.
+
+Here is an example of incorrectly attempting to use a type argument to affect which branch is taken in a match expression.
+\code{
+defn check-if<T> (x) :
+   match(x) :
+      (x:T) : true
+      (x) : false
+}
+Let's try it out on a \code{String} object.
+\code{
+println(check-if<Int>("Timon"))
+}
+Compiling and running the above prints out
+\code{
+FATAL ERROR: Cannot cast value to type.
+   at test.stanza:15.8
+   at test.stanza:18.8
+}
+
+Here is what is happening underneath. The \italic{dispatch} type in a match branch has all of its type arguments and parametric types erased. Thus the code above is equivalent to the following
+\code{
+defn check-if<T> (x) :
+   match(x) :
+      (y:?) :
+         val x = y as T
+         true
+      (y:?) :
+         false
+}
+and the error message arises because \code{y} cannot be cast to a \code{T} object. We intentionally designed Stanza so that there is no possible way to write a function such as \code{check-if}.
+
+\section{Revisiting Stack}
+At this point, we have all the requisite knowledge for writing a parametric version of our \code{Stack} class from chapter 6. Here are our old definitions for the \code{Stack} type and its fundamental operations.
+\code{
+deftype Stack <: Collection<String>
+defmulti push (s:Stack, x:String) -> False
+defmulti pop (s:Stack) -> String
+defmulti empty? (s:Stack) -> True|False
+}
+A \code{Stack} is declared to be a collection of strings, and its fundamental operations allow us to push and pop strings from it.
+
+Here is the original constructor function.
+\code{
+defn Stack (capacity:Int) -> Stack :
+   val items = Array<String>(capacity)
+   var size = 0
+   new Stack :
+      defmethod push (this, x:String) :
+         if size == capacity : fatal("Stack is full!")
+         items[size] = x
+         size = size + 1
+      defmethod pop (this) :
+         if size == 0 : fatal("Stack is empty!")
+         size = size - 1
+         items[size]
+      defmethod empty? (this) :
+         size == 0
+      defmethod print (o:OutputStream, this) :
+         print(o, "Stack containing [")
+         print-all(o, join(this, " "))
+         print(o, "]")
+      defmethod to-seq (this) :
+         take-n(size, items)
+}
+
+\subsection{Parametric Type Declaration}
+The first step is to declare \code{Stack} as a parametric type. 
+\code{
+deftype Stack<T> <: Collection<T>
+}
+Thus, \code{Stack} now takes a type parameter, \code{T}, that indicates what types of objects the stack may hold, and is also no longer a collection of strings. It is now a collection of \code{T}'s. 
+
+\subsection{Polymorphic Fundamental Operations}
+The second step is to declare its fundamental operations as polymorphic functions.
+\code{
+defmulti push<?T> (s:Stack<?T>, x:T) -> False
+defmulti pop<?T> (s:Stack<?T>) -> T
+defmulti empty? (s:Stack) -> True|False
+}
+both \code{push} and \code{pop} now accept a captured type argument, \code{T}, that indicates the element type of the stack object. Here are some points to take note of. Notice that the \code{x} argument for \code{push} is not a capture location for \code{T}. This is consistent with our earlier discussion in the section on capture locations. Also notice that the \code{empty?} multi is unchanged, as the types of the objects in a stack are not needed to check whether the stack is empty.
+
+\subsection{Polymorphic Constructor Function}
+The last step is to make its constructor function polymorphic.
+\code{
+defn Stack<T> (capacity:Int) -> Stack<T> :
+   val items = Array<T>(capacity)
+   var size = 0
+   new Stack :
+      defmethod push (this, x:T) :
+         if size == capacity : fatal("Stack is full!")
+         items[size] = x
+         size = size + 1
+      defmethod pop (this) :
+         if size == 0 : fatal("Stack is empty!")
+         size = size - 1
+         items[size]
+      defmethod empty? (this) :
+         size == 0
+      defmethod print (o:OutputStream, this) :
+         print(o, "Stack containing [")
+         print-all(o, join(this, " "))
+         print(o, "]")
+      defmethod to-seq (this) :
+         take-n(size, items)
+}
+The constructor function now takes an explicit type argument, \code{T}, indicating the element type of the stack object, and returns a \code{Stack<T>}. Notice that the backing array, \code{items}, is no longer an \code{Array<String>}. It is now declared as an \code{Array<T>} in order to hold the items in the stack. \code{push} now also accepts a \code{T} value instead of a \code{String} value. The rest of the function is unchanged. 
+
+\subsection{Trying It Out}
+Let's try out our parametric \code{Stack} type using a variation of our original test code.
+\code{\#{
+defn main () :
+   val s = Stack<Int>(10)
+   for x in [1, 5, 2, 42, -11, 2, 5, 10, -42] do :
+      push(s, x)
+
+   println("1. Contents of s")
+   println(s)
+
+   println("\n2. Index of 42")
+   println(index-of(s, 42))
+
+   println("\n3. Does it contain any negative numbers?")
+   println(any?({_ < 0}, s))
+
+   println("\n4. Are all numbers negative?")
+   println(all?({_ < 0}, s))
+
+   println("\n5. What are the negative numbers?")
+   val cap-s = filter({_ < 0}, s)
+   println-all(join(cap-s, ", "))
+
+   println("\n6. What are its unique elements?")
+   println(unique(s))
+
+main()
+\#}}
+Compiling and running the above prints out
+\code{
+1. Contents of s
+Stack containing [1 5 2 42 -11 2 5 10 -42]
+
+2. Index of 42
+3
+
+3. Does it contain any negative numbers?
+true
+
+4. Are all numbers negative?
+false
+
+5. What are the negative numbers?
+-11, -42
+
+6. What are its unique elements?
+(1 5 2 42 -11 10 -42)
+}
+
+Our parametric stack type is now quite general. It can hold items of different types, and it supports all the operations in the core sequence library. Actually, the \code{Array} and \code{Vector} types in the core library are defined in much the same way as \code{Stack}.
+

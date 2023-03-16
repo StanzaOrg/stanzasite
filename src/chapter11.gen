@@ -1,0 +1,845 @@
+\chapter{Calling Foreign Functions}{
+This chapter teaches you write programs that interact with code written in other languages. It will teach you how to call functions written in other languages, and how to write Stanza functions meant to be called from other languages.
+}
+
+One of the most important features that a practical programming language must support is the ability to call functions written in other languages. There are too many useful libraries written in the established languages to consider rewriting them in another programming language. Stanza provides support for calling any function using the calling convention for the C programming language. This means that you can use any library written in C, or that provides a C interface, in Stanza. Since the dominant consumer operating systems today use a C calling convention, this means that the vast majority of libraries can be called from Stanza. This chapter will show you how.
+
+\section{Writing a C Function}
+
+Here is a fibonacci function written in C. Create a \code{fibonacci.c} file with the following contents.
+\code{\#{
+#include<stdio.h>
+#include<stdlib.h>
+
+int generate_fib (int n) {
+   int a = 0;
+   int b = 1;
+   while(n > 0){
+      printf("%d\n", b);
+      int c = a + b;
+      a = b;
+      b = c;
+      n = n - 1;
+   }
+   return 0;
+}
+
+int main (int nargs, char** argvs) {
+   generate_fib(10);
+   return 0;
+}
+\#}} 
+
+Compile and run the above program by typing
+\code{
+cc fibonacci.c -o fibonacci
+./fibonacci
+}
+in the terminal. It should print out
+\code{
+1
+1
+2
+3
+5
+8
+13
+21
+34
+55
+}
+
+In the next step, we will call the \code{generate_fib} function from Stanza.
+
+\section{Calling our C Function}
+The first step is just to remove the \code{main} function in \code{fibonacci.c} since the program is now being initialized and driven by Stanza.
+
+Next create a file named \code{fib.stanza} with the following contents.
+\code{
+defpackage fib :
+   import core
+   import collections
+
+extern generate_fib: int -> int
+
+lostanza defn call-fib () -> ref<False> :
+   call-c generate_fib(10)
+   return false
+
+println("Calling fibonacci")
+call-fib()
+println("Done calling fibonacci")
+}
+
+To compile both the \code{fib.stanza} and \code{fibonacci.c} files together, and run the program, type the following into the terminal.
+\code{
+stanza fib.stanza -ccfiles fibonacci.c -o fib
+./fib
+}
+It should print out
+\code{
+Calling fibonacci
+1
+1
+2
+3
+5
+8
+13
+21
+34
+55
+Done calling fibonacci
+}
+
+Thus our Stanza program successfully calls and returns from the \code{generate_fib} function written in C. Let's go through the program step by step.
+
+\subsection{Declaring an External Function}
+The line 
+\code{
+extern generate_fib: int -> int
+}
+declares that there is a function defined externally called \code{generate_fib} that takes a single integer argument and returns a single integer argument.
+
+Notice that \code{int} is not capitalized. This is important. \code{int} refers to the \italic{LoStanza} integer type, and is different from the \italic{Stanza} type \code{Int}. We'll go over what this means later. 
+
+Let us suppose that \code{generate_fib} took two arguments instead of one. Make the following change to the \code{generate_fib} function, where it now accepts an argument, \code{b0}, to indicate the initial value of \code{b}.
+\code{\#{
+int generate_fib (int b0, int n) {
+   int a = 0;
+   int b = b0;
+   ...
+}   
+\#}}
+
+Then the \code{extern} statement, and the call to \code{generate_fib} would have to be updated accordingly.
+\code{
+extern generate_fib: (int, int) -> int
+
+lostanza defn call-fib () -> ref<False> :
+   call-c generate_fib(2, 10)
+   return false
+}
+Compiling and running the new program now prints out
+\code{
+Calling fibonacci
+2
+2
+4
+6
+10
+16
+26
+42
+68
+110
+Done calling fibonacci
+}
+
+\subsection{Declaring a LoStanza Function}
+LoStanza is a small sub-language within Stanza that allows users to precisely specify data layouts and perform low-level hardware operations. LoStanza can be used for writing high performance code, communicating with external peripherals, and implementing system level functions. Stanza's garbage collector, for example, is written in LoStanza. In this chapter, we are using it to interface with externally defined functions. 
+
+The line
+\code{
+lostanza defn call-fib () -> ref<False>
+}
+declares a LoStanza function called \code{call-fib}. Its return type, \code{ref<False>}, indicates that it returns a reference to the Stanza type, \code{False}. 
+
+The line
+\code{
+call-c generate_fib(10)
+}
+calls the \code{generate_fib} function with the argument \code{10}. The \code{call-c} tells Stanza to call \code{generate_fib} with the \italic{C calling convention}. By default, Stanza uses the \italic{Stanza calling convention} to call other functions, and if you forget the \code{call-c} it will seriously confuse \code{generate_fib} and crash the program. 
+
+Finally, the line
+\code{
+return false
+}
+simply returns \code{false} to whomever called \code{call-fib}.
+
+\subsection{C Functions that Return void}
+When a C function is declared to return a value of type \code{void}, it means that the function is called for its side effects only, and returns an arbitrary value. Let's change \code{generate_fib} to return \code{void}.
+\code{\#{
+void generate_fib (int b0, int n) {
+   int a = 0;
+   int b = b0;
+   while(n > 0){
+      int c = a + b;
+      printf("%d\n", c);
+      a = b;
+      b = c;
+      n = n - 1;
+   }
+}
+\#}}
+
+Stanza does not provide any explicit support for modeling arbitrary values, so the \code{extern} statement would remain as
+\code{
+extern generate_fib: (int, int) -> int
+}
+and, as the programmer, you would have to remember (or document) that \code{generate_fib} returns some random integer that should not be used.
+
+\section{Calling LoStanza from Stanza}
+The arguments to \code{generate_fib} are currently hardcoded into the \code{call-fib} function. Let's change that to allow both \code{b0} and \code{n} to be passed as arguments to \code{call-fib}.
+\code{
+extern generate_fib: (int, int) -> int
+
+lostanza defn call-fib (b0:int, n:int) -> ref<False> :
+   call-c generate_fib(b0, n)
+   return false
+}
+And our test code will now call \code{call-fib} with different arguments.
+\code{
+println("Calling fibonacci(1, 10)")
+call-fib(1, 10)
+println("Calling fibonacci(2, 10)")
+call-fib(2, 10)
+println("Done calling fibonacci")
+}
+
+However, attempting to compile the above gives us the following error.
+\code{
+LoStanza function call-fib of type (int, int) -> ref<False> 
+can only be referred to from LoStanza.
+}
+As mentioned, \code{int} is a \italic{LoStanza} type, and you're not allowed to call it directly from Stanza with \italic{Stanza} objects.
+
+\subsection{Convert Stanza Objects to LoStanza Values}
+The type \code{Int} is declared like this.
+\code{
+lostanza deftype Int :
+   value: int
+}
+We will explain what that means in more detail later, but for now, notice that it contains a field called \code{value} that is of type \code{int}. Thus, we will modify our \code{call-fib} function to accept references to \code{Int} objects, and then pass their \code{value} fields to \code{generate_fib}.
+\code{
+lostanza defn call-fib (b0:ref<Int>, n:ref<Int>) -> ref<False> :
+   call-c generate_fib(b0.value, n.value)
+   return false
+}
+
+With this change, the program now compiles correctly, and prints out
+\code{
+Calling fibonacci(1, 10)
+1
+1
+2
+3
+5
+8
+13
+21
+34
+55
+Calling fibonacci(2, 10)
+2
+2
+4
+6
+10
+16
+26
+42
+68
+110
+Done calling fibonacci
+}
+
+A LoStanza function can be called from Stanza if and only if all of its argument types and return type are \code{ref<T>}, indicating that it accepts and returns a reference to a Stanza object. LoStanza functions that can be suitably called from Stanza are indistinguishable from regular Stanza functions. So in addition to being called directly, they can also be passed as arguments, and stored in datastructures.
+
+\subsection{Convert LoStanza Values to Stanza Objects}
+Let us now change \code{generate_fib} to return the \code{n}'th fibonacci number, instead of printing all of them. 
+\code{\#{
+int generate_fib (int b0, int n) {
+   int a = 0;
+   int b = b0;
+   while(n > 0){
+      int c = a + b;
+      a = b;
+      b = c;
+      n = n - 1;
+   }
+   return b;
+}
+\#}}
+
+We'll also update our \code{call-fib} function to return the result of \code{generate_fib}.
+\code{
+lostanza defn call-fib (b0:ref<Int>, n:ref<Int>) -> int :
+   val result = call-c generate_fib(b0.value, n.value)
+   return result
+}
+
+Here's the updated test code that prints out the result of calling \code{call-fib}.
+\code{
+println("fibonacci(1, 10) =")
+println(call-fib(1, 10))
+println("fibonacci(2, 10) =")
+println(call-fib(2, 10))
+println("Done calling fibonacci")
+}
+
+However, attempting to compile the above gives us this familiar error.
+\code{
+LoStanza function call-fib of type (ref<Int>, ref<Int>) -> int 
+can only be referred to from LoStanza.
+}
+
+As mentioned already, a LoStanza function can be called from Stanza if and only if all of its argument types \italic{and return type} are \code{ref<T>}. We learned how to convert Stanza \code{Int} objects into LoStanza \code{int} values in the previous section. Now we'll learn how to convert LoStanza \code{int} values back into Stanza \code{Int} objects.
+
+To create a Stanza \code{Int} object, we use the LoStanza \code{new} operator.
+\code{\#{
+lostanza defn call-fib (b0:ref<Int>, n:ref<Int>) -> ref<Int> :
+   val result = call-c generate_fib(b0.value, n.value)
+   return new Int{result}
+\#}}
+
+Our test code now compiles and runs, and prints out
+\code{
+fibonacci(1, 10) =
+89
+fibonacci(2, 10) =
+178
+Done calling fibonacci
+}
+
+Note that the LoStanza \code{new} operator is completely different than the Stanza \code{new} operator. It is best to consider LoStanza as a completely separate language from Stanza. It has its own syntax, operators, and behaviour. The thing that makes LoStanza unique is that there is a well-defined and flexible interface between it and Stanza.
+
+\section{LoStanza Types}
+There are a handful of additional LoStanza types in addition to the \code{int} type that we used in the declaration of the \code{generate_fib} function. 
+
+\subsection{Primitive Types}
+Here is a listing of the rest of the LoStanza primitive types, along with an example of their values.
+\code{
+val x:byte = 42Y
+val x:int = 42
+val x:long = 42L
+val x:float = 42.0f
+val x:double = 42.0
+}
+
+A \code{byte} is an 8-bit unsigned integer. An \code{int} is a 32-bit signed integer. A \code{long} is a 64-bit signed integer. A \code{float} is a 32-bit single precision floating point number. And a \code{double} is a 64-bit double precision floating point number.
+
+The above primitive types have an associated Stanza type, each declared to contain a single \code{value} field containing the LoStanza representation of its value. The associated Stanza types for \code{byte}, \code{int}, \code{long}, \code{float}, and \code{double}, are \code{Byte}, \code{Int}, \code{Long}, \code{Float}, and \code{Double}, respectively. In addition to \code{Byte}, the Stanza type \code{Char} is also declared to contain a single \code{value} field of type \code{byte}.
+
+As an example, let us write a version of \code{generate_fib} that works on double precision floating point numbers.
+\code{\#{
+double generate_fib_d (double b0, int n) {
+   double a = 0.0;
+   double b = b0;
+   while(n > 0){
+      double c = a + b;
+      a = b;
+      b = c;
+      n = n - 1;
+   }
+   return b;
+}
+\#}}
+
+Here is the LoStanza code needed to be able to call \code{generate_fib_d} from Stanza.
+\code{\#{
+extern generate_fib_d: (double, int) -> double
+
+lostanza defn call-fib (b0:ref<Double>, n:ref<Int>) -> ref<Double> :
+   val result = call-c generate_fib_d(b0.value, n.value)
+   return new Double{result}
+\#}}
+
+Now armed with double precision floating point, let's calculate the 100'th fibonacci number.
+\code{
+println("fibonacci(1.0, 100) = ")
+println(call-fib(1.0, 100))
+println("fibonacci(2.0, 100) = ")
+println(call-fib(2.0, 100))
+println("Done calling fibonacci")
+}
+Compiling and running the above prints out
+\code{
+fibonacci(1.0, 100) = 
+573147844013817200640.000000000000000
+fibonacci(2.0, 100) = 
+1146295688027634401280.000000000000000
+Done calling fibonacci
+}
+
+Notice that the \code{call-fib} function is overloaded to accept both \code{Int} and \code{Double} arguments. LoStanza functions have all the same features as Stanza functions, and this includes their ability to be overloaded.
+
+\subsection{Pointer Types}
+Pointers are represented in LoStanza with the \code{ptr<t>} type. The little \code{t} represents any LoStanza type. For example, here is the type representing a pointer to an \code{int},
+\code{
+ptr<int>
+}
+and here is the type representing a \italic{pointer to} a pointer to an \code{int},
+\code{
+ptr<ptr<int>>
+}
+
+The type
+\code{
+ptr<?>
+}
+represents a generic pointer to anything.
+
+As an example of their use, let's call the C \code{malloc} and \code{free} functions to allocate and delete space for three integers.
+\code{
+extern malloc: long -> ptr<?>
+extern free: ptr<?> -> int
+
+lostanza defn try-pointers () -> ref<False> :
+   val ints:ptr<int> = call-c malloc(3 * sizeof(int))
+   call-c free(ints)
+   return false
+}
+
+The \code{[]} operator in LoStanza is the dereference operator and retrieves the value stored at the given pointer address. Here is an example of storing and retrieving values into and from the \code{ints} pointer.
+\code{
+lostanza defn try-pointers () -> ref<False> :
+   val ints:ptr<int> = call-c malloc(3 * sizeof(int))
+   [ints] = 42
+   [ints + 4] = 43
+   [ints + 8] = 44
+   val x = [ints]
+   val y = [ints + 4]
+   val z = [ints + 8]
+   call-c free(ints)
+   return false
+}
+Programmers familiar with C should note that arithmetic on pointers \italic{do not} automatically operate in terms of the size of the pointer's data type. To retrieve the \code{i}'th element from a pointer, assuming that its elements are stored contiguously, we use the following syntax.
+\code{
+lostanza defn try-pointers () -> ref<False> :
+   val ints:ptr<int> = call-c malloc(3 * sizeof(int))
+   ints[0] = 42
+   ints[1] = 43
+   ints[2] = 44
+   val x = ints[0]
+   val y = ints[1]
+   val z = ints[2]
+   call-c free(ints)
+   return false
+}
+This is equivalent to the previous example.
+
+\subsection{Declaring a LoStanza Type}
+Consider the following definition of the C type \code{Point3D} and function \code{get_origin}.
+\code{\#{
+typedef struct {
+   float x;
+   float y;
+   float z;
+} Point3D;
+
+Point3D* get_origin () {
+  Point3D* p = (Point3D*)malloc(sizeof(Point3D));
+  p->x = 0.0f;
+  p->y = 0.0f;
+  p->z = 0.0f;
+  return p;
+}
+\#}}
+\code{Point3D} is a struct that contains three \code{float} fields, and \code{get_origin} returns a pointer to a \code{Point3D}. 
+
+Here is how we would declare our own LoStanza type to mirror the C type definition.
+\code{
+lostanza deftype Point3D :
+   x: float
+   y: float
+   z: float
+}
+
+Here's a function that demonstrates calling \code{get_origin} and returning the \code{x} field in the returned point.
+\code{\#{
+extern get_origin: () -> ptr<Point3D>
+
+lostanza defn origin-x () -> ref<Float> :
+   val p = call-c get_origin()
+   return new Float{p.x}
+\#}}
+
+Here's some code to test the \code{origin-x} function.
+\code{
+println("The x coordinate of the origin is %_." % [origin-x()])
+}
+which prints out
+\code{
+The x coordinate of the origin is 0.000000.
+}
+
+\subsection{Reference Types}
+A reference to a Stanza object is represented with the \code{ref<T>} type. The big \code{T} represents any Stanza type. We've already used the \code{ref<Int>}, and \code{ref<Float>} types in our examples. 
+
+Our previous function \code{origin-x} returned the \code{x} coordinate of the origin. But we would really like to just return the entire point to Stanza. Similar to how we converted \code{int} values to \code{Int} objects, this is done using the \code{new} operator.
+\code{\#{
+lostanza defn origin () -> ref<Point3D> :
+   val p = call-c get_origin()
+   return new Point3D{p.x, p.y, p.z}
+\#}}
+
+And here are the LoStanza getter functions for a \code{Point3D} that allows Stanza to retrieve the coordinates within it.
+\code{\#{
+lostanza defn x (p:ref<Point3D>) -> ref<Float> :
+   return new Float{p.x}
+lostanza defn y (p:ref<Point3D>) -> ref<Float> :
+   return new Float{p.y}
+lostanza defn z (p:ref<Point3D>) -> ref<Float> :
+   return new Float{p.z}
+\#}}
+
+Here's some code to test our new \code{origin} function.
+\code{\#{
+val p = origin()
+println("The x coordinate of the origin is %_." % [x(p)])
+println("The y coordinate of the origin is %_." % [y(p)])
+println("The z coordinate of the origin is %_." % [z(p)])
+\#}}
+
+Compiling and running the above code prints out
+\code{
+The x coordinate of the origin is 0.000000.
+The y coordinate of the origin is 0.000000.
+The z coordinate of the origin is 0.000000.
+}
+
+As one last example, let's write, in LoStanza, a constructor function for \code{Point3D} objects that can be called from Stanza.
+\code{\#{
+lostanza defn Point3D (x:ref<Float>, y:ref<Float>, z:ref<Float>) -> ref<Point3D> :
+   return new Point3D{x.value, y.value, z.value}
+\#}}
+
+Here's some test code for trying out our constructor function.
+\code{
+val p2 = Point3D(1.0f, 3.4f, 4.2f)
+println("The x coordinate of p2 is %_." % [x(p2)])
+println("The y coordinate of p2 is %_." % [y(p2)])
+println("The z coordinate of p2 is %_." % [z(p2)])
+}
+which, when compiled and ran, prints out
+\code{
+The x coordinate of p2 is 1.000000.
+The y coordinate of p2 is 3.400000.
+The z coordinate of p2 is 4.200000.
+}
+
+With these definitions, \code{Point3D} becomes a type that we can freely manipulate from Stanza. We can create \code{Point3D} objects, and we can retrieve its fields.  
+
+\subsection{Literal Strings}
+A literal string in LoStanza has type \code{ptr<byte>} and refers to a pointer to a memory location where the ascii byte representation of its characters are stored. 
+
+For example, the following snippet will retrieve the ascii byte value of the character \code{'o'} and store it in the value \code{c}.
+\code{
+val str:ptr<byte> = "Hello"
+val c:byte = str[4]
+}
+
+The characters are also stored with a terminating zero byte after all the characters. This allows the literal strings to be suitably used with external libraries expecting C language strings.
+
+\subsection{External Unknown Arity Functions}
+Neither LoStanza nor Stanza supports the definition of functions that take an unknown number of arguments. But there are external libraries containing such functions. The C \code{printf} function is the most famous one.
+
+The \code{printf} function would be declared like this.
+\code{
+extern printf: (ptr<byte>, ? ...) -> int
+}
+
+Here is an example of calling it from a function called \code{test}.
+\code{\#{
+lostanza defn test () -> ref<False> :
+   call-c printf("The friendship between %s and %s is valued at over %d.\n",
+                 "Timon", "Pumbaa", 9000)
+   return false
+
+test()
+\#}}
+
+Compiling and running the above prints out
+\code{
+The friendship between Timon and Pumbaa is valued at over 9000.
+}
+
+\section{External Global Variables}
+Let us suppose that \code{generate_fib} was written differently. Suppose that it does not accept any arguments, and also returns \code{void}. Instead it will retrieve its argument from a global variable named \code{FIB_PARAM}, and store the result in \code{FIB_PARAM} when finished. 
+
+\code{\#{
+int FIB_PARAM;
+
+void generate_fib (void) {
+   int a = 0;
+   int b = 1;
+   while(FIB_PARAM > 0){
+      int c = a + b;
+      a = b;
+      b = c;
+      FIB_PARAM = FIB_PARAM - 1;
+   }
+   FIB_PARAM = b;
+}
+\#}}
+
+To call the new \code{generate_fib}, our LoStanza \code{call-fib} function would need to be able to read and write to the \code{FIB_PARAM} variable. Here's how to do that.
+\code{\#{
+extern FIB_PARAM : int
+extern generate_fib : () -> int
+
+lostanza defn call-fib (n:ref<Int>) -> ref<Int> :
+   FIB_PARAM = n.value
+   call-c generate_fib()
+   return new Int{FIB_PARAM}
+
+println("fib(10) = %_" % [call-fib(10)])
+\#}}
+Compiling and running the above prints out
+\code{
+fib(10) = 89
+}
+
+\section{Function Pointers}
+Certain C libraries tend to make heavy use of function pointers for implementing callbacks or parameterized behaviour. Let us suppose there is a C function called \code{choose_greeting} that when given an integer argument returns one of several possible greeting functions to return. These greeting functions then accept a C string and print out an appropriate message.
+\code{\#{
+void standard_greeting (char* name) {
+  printf("Hello %s!\n", name);
+}
+
+void chill_greeting (char* name) {
+  printf("'Sup %s.\n", name);
+}
+
+void excited_greeting (char* name) {
+  printf("%c", name[0]);
+  for(int i=0; i<5; i++)
+    printf("%c", name[1]);
+  printf("%s! Heyyyy!\n", name+2);    
+}
+
+typedef void (*Greeting)(char* name);
+Greeting choose_greeting (int option) {
+  switch(option){
+  case 1: return &chill_greeting;
+  case 2: return &excited_greeting;
+  default: return &standard_greeting;
+  }
+}
+\#}}
+
+The \code{extern} declaration for \code{choose_greeting} would look like this.
+\code{
+extern choose_greeting: int -> ptr<(ptr<byte> -> int)>
+}
+Here's how to decipher that piece by piece. The returned greeting functions all have type
+\code{
+ptr<byte> -> int
+}
+The \code{choose_greeting} function returns a \italic{pointer} to a greeting function. So the return type of \code{choose_greeting} is
+\code{
+ptr<(ptr<byte> -> int)>
+}
+And \code{choose_greeting}, itself, requires an integer argument. Thus the full type for \code{choose_greeting} is
+\code{
+int -> ptr<(ptr<byte> -> int)>
+}
+
+Here is the LoStanza \code{greet} function which takes an integer argument called \code{option} and greets Patrick appropriately.
+\code{\#{
+lostanza defn greet (option:ref<Int>) -> ref<False> :
+   val greet = call-c choose_greeting(option.value)
+   call-c [greet]("Patrick")
+   return false
+\#}}
+Notice that the value \code{greet} has type \code{ptr<(ptr<byte> -> int)>}, and thus it needs to be first dereferenced before it can be called.
+\code{
+call-c [greet]("Patrick")
+}
+
+Let's try it out!
+\code{\#{
+println("Option 0")
+greet(0)
+
+println("\nOption 1")
+greet(1)
+
+println("\nOption 2")
+greet(2)
+\#}}
+Compiling and running the above prints out
+\code{
+Option 0
+Hello Patrick!
+
+Option 1
+'Sup Patrick.
+
+Option 2
+Paaaaatrick! Heyyyy!
+}
+
+\section{The Address Operator}
+The \code{greet} function in the previous example accepts an integer argument to select the type of greeting, but it only ever greets Patrick. Let's generalize \code{greet} to accept whom to greet as well.
+
+We want \code{greet} to be callable from Stanza, so the name will be passed in as a \code{String} object.
+\code{
+lostanza defn greet (option:ref<Int>, name:ref<String>) -> ref<False> :
+   ...
+}
+
+But the \code{greet} function requires a \code{ptr<byte>} as its argument, and \code{name} is a \code{ref<String>}. How do we get access to a pointer to the string's characters?
+
+The \code{String} type is declared in the core library as
+\code{
+lostanza deftype String :
+   length: long
+   hash: int
+   chars: byte ...
+}
+The ellipsis following the \code{byte} indicates that the \code{String} object ends with a variable number of trailing \code{byte} values. We need a pointer to those values to call \code{greet} with. To do that we will use the \code{addr} operator, which will return the pointer address of a location.
+
+Let's now write our \code{greet} function with the \code{addr} operator.
+\code{
+lostanza defn greet (option:ref<Int>, name:ref<String>) -> ref<False> :
+   val greet = call-c choose_greeting(option.value)
+   call-c [greet](addr(name.chars))
+   return false
+}
+
+And update our test code to pass in a different name for each type of greeting.
+\code{\#{
+println("Option 0")
+greet(0, "Emmy")
+
+println("\nOption 1")
+greet(1, "Patrick")
+
+println("\nOption 2")
+greet(2, "Luca")
+\#}}
+
+Attempting to compile the above, however, gives us this error.
+\code{
+Cannot retrieve address of unstable location using addr operator.
+}
+What does that mean?
+
+\subsection{Stable and Unstable Locations}
+Underneath the hood, Stanza uses a precise \italic{relocating} garbage collector. What this means is that objects are constantly being shuffled around in memory during the garbage collection process. An unstable location is a location whose address is not fixed, such as a field in a Stanza object. In contrast, a stable location is one whose address is fixed, such as a piece of memory allocated using \code{malloc}.
+
+The error above is saying that we cannot use the \code{addr} operator to retrieve the address of \code{name.chars}, which is an unstable location. \code{name} is a Stanza string and will be relocated whenever the garbage collector runs, and so the address of \code{name.chars} is constantly changing. 
+
+However, we are planning to pass the address of \code{name.chars} to C and then \italic{immediately} start executing C code. Additionally, the C function is guaranteed not to hang onto the pointer after it returns. Thus, in this particular case, we know that Stanza's garbage collector will never have a chance to run, and it \italic{is} safe to retrieve the pointer of \code{name.chars}.
+
+To \italic{force} Stanza to give you the address of an unstable location, Stanza provides you the \code{addr!} operator. So let's update our \code{greet} function by using the \code{addr!} operator this time,
+\code{
+lostanza defn greet (option:ref<Int>, name:ref<String>) -> ref<False> :
+   val greet = call-c choose_greeting(option.value)
+   call-c [greet](addr!(name.chars))
+   return false
+}
+and try compiling and running the program again. The program now prints out
+\code{
+Option 0
+Hello Emmy!
+
+Option 1
+'Sup Patrick.
+
+Option 2
+Luuuuuca! Heyyyy!
+}
+
+You should stick to using the \code{addr} operator whenever you can, and use the \code{addr!} operator only when you're \italic{very} sure that the object won't be relocated while you're using the pointer.
+
+\section{Calling LoStanza from C}
+So far we've only considered calling C functions from Stanza, but what if you wanted to call a Stanza function from C? Stanza supports both directions of calling and this section will explain how.
+
+Let us reconsider the \code{generate_fib} function again. This time, we will have \code{generate_fib} call a Stanza function for each number that is generated. Here is the code for \code{generate_fib}.
+\code{\#{
+#include<stdio.h>
+#include<stdlib.h>
+
+void number_generated (int x);
+
+void generate_fib (int n) {
+   int a = 0;
+   int b = 1;
+   while(n > 0){
+      number_generated(b);
+      int c = a + b;
+      a = b;
+      b = c;
+      n = n - 1;
+   }
+}
+\#}}
+Notice that we assume the existence of a function called \code{number_generated} that we can call from C.
+
+C will call \code{number_generated} using the C calling convention, so we need to be able to define a LoStanza function that is expecting to be called with the C calling convention. The \code{extern} keyword will allow us to do that. Our \code{number_generated} function will push the generated number to a global vector called \code{FIB_NUMBERS}.
+\code{\#{
+val FIB_NUMBERS = Vector<Int>()
+
+extern defn number_generated (n:int) -> int :
+   add(FIB_NUMBERS, new Int{n})
+   return 0
+\#}}
+
+The implementation of the \code{call-fib} function remains as it was before.
+\code{
+extern generate_fib: int -> int
+
+lostanza defn call-fib (n:ref<Int>) -> ref<False> :
+   call-c generate_fib(n.value)
+   return false
+}
+
+Let's try it out then! Here's our test code.
+\code{
+call-fib(20)
+println("Generated Numbers: %_" % [FIB_NUMBERS])
+}
+
+Compiling and running the above prints out
+\code{
+Generated Numbers: [1 1 2 3 5 8 13 21 34 55 89 144 233
+                    377 610 987 1597 2584 4181 6765]
+}
+
+\section{Passing Callbacks to C}
+In the last section, we showed you how to write a LoStanza function that can be called with C. However, C libraries are not typically architected to directly call a named user function. Instead, the user will pass the library a pointer to a callback function that is then later called by the library. 
+
+Let's change our \code{generate_fib} function so that it no longer directly calls the \code{number_generated} function. It will accept instead, as an argument, a pointer to a callback function which it will call. 
+\code{\#{
+void generate_fib (int n, void (*number_generated)(int x)) {
+   int a = 0;
+   int b = 1;
+   while(n > 0){
+      number_generated(b);
+      int c = a + b;
+      a = b;
+      b = c;
+      n = n - 1;
+   }
+}
+\#}} 
+
+We shall keep the LoStanza definition of \code{number_generated} the same, but we will need to change the declaration of the \code{generate_fib} function, and also pass a pointer to \code{number_generated} to the call to \code{generate_fib}.
+\code{\#{
+extern generate_fib: (int, ptr<(int -> int)>) -> int
+
+lostanza defn call-fib (n:ref<Int>) -> ref<False> :
+   call-c generate_fib(n.value, addr(number_generated))
+   return false
+\#}}
+Notice the use of the standard \code{addr} operator for retrieving the address of the \code{number_generated} function.
+
+Compiling and running the above prints out
+\code{
+Generated Numbers: [1 1 2 3 5 8 13 21 34 55 89 144 233
+                    377 610 987 1597 2584 4181 6765]
+}
+
+Let's take this time to review everything that this example demonstrates.
+\list{
+\item Stanza is calling \code{call-fib}, which is a function written in LoStanza.
+\item \code{call-fib} is calling \code{generate_fib}, which is a function written in C.
+\item \code{generate_fib} is passed a pointer to the \code{number_generated} function which is written in LoStanza.
+\item \code{generate_fib} runs and calls \code{number_generated} multiple times.
+\item Each time \code{number_generated} is called, it creates a Stanza \code{Int} object from the argument passed to it by \code{generate_fib}, and calls the Stanza function \code{add} to push it onto a vector.
+}
+
+This will likely be the most complicated usage of Stanza's foreign function interface you will come across, but it's nice to know that the flexibility is there when you need it.

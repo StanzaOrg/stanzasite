@@ -1,0 +1,18 @@
+\read(src/template.gen)
+
+\bookpages{
+   \index{stanzabyexample.gen}
+   \page{chapter1.gen}
+   \page{chapter2.gen}
+   \page{chapter3.gen}
+   \page{chapter4.gen}
+   \page{chapter5.gen}
+   \page{chapter6.gen}
+   \page{chapter7.gen}
+   \page{chapter8.gen}
+   \page{chapter9.gen}
+   \page{chapter10.gen}
+   \page{macrosystem.gen}
+   \page{chapter11.gen}   
+   \page{appendix.gen}
+}

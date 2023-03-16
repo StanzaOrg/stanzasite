@@ -1,0 +1,701 @@
+\chapter{Programming with Sequences}{
+This chapter teaches you how to program using Stanza's sequence abstraction, as well as how to make full use of the core sequence library.
+}
+A sequence is a series of objects. At any point, you may ask whether a sequence is empty, and if it is not empty you may retrieve the next object. Many datastructures can represent their items as a sequence. For example, a sequence for representing the items in an array could begin with the item at index \code{0}. Subsequent items in the sequence would correspond to subsequent items in the array. When it reaches the end of the array then the sequence is empty.
+
+While sequences are not a core language feature, they do play a fundamental part in the design of Stanza's core library. In this chapter we'll see how to fully exploit their power, and by doing so, avoid having to repeatedly reimplement many common programming patterns ourselves. 
+
+\section{Fundamental Operations}
+A sequence is represented by the \code{Seq} type in Stanza. Let's first create a sequence containing all the strings in a tuple.
+\code{
+val xs = to-seq(["Timon" "and" "Pumbaa" "are" "good" "friends."])
+}
+This creates the sequence \code{xs}, which has type \code{Seq<String>} indicating that it is a sequence of strings.
+
+Fundamentally, a sequence is defined by three operations.
+\list{
+\item You may ask whether a sequence is empty.
+\item You may take a peek at the next item in the sequence.
+\item You may take out the next item in the sequence.
+}
+
+Here is how to ask whether our \code{xs} sequence is empty.
+\code{
+if empty?(xs) :
+   println("xs is empty.")
+else :
+   println("xs is not empty.")
+}
+which prints out
+\code{
+xs is not empty.
+}
+because we haven't taken anything out of the sequence yet. 
+
+If the sequence is not empty, then you can take a peek at the next item in the sequence like this.
+\code{
+val x0 = peek(xs)
+println("The next item is %_." % [x0])
+}
+which prints out
+\code{
+The next item is Timon.
+}
+Peeking at an empty sequence is a fatal error.
+
+Peeking at a sequence does not change the state of a sequence. If you peek again at the same sequence, it returns the same thing.
+\code{
+val x1 = peek(xs)
+println("The next item is still %_." % [x1])
+}
+which prints out
+\code{
+The next item is still Timon.
+}
+
+Once you've determined that the sequence is not empty, you may take out the next item in the sequence.
+\code{
+val y0 = next(xs)
+println("Took out item %_ from xs." % [y0])
+}
+which prints out
+\code{
+Took out item Timon from xs.
+}
+
+Calling \code{next} on a sequence \italic{does} change the state of a sequence. If you call \code{next} again on the same sequence, it will return the following item in the sequence.
+\code{
+val y1 = next(xs)
+println("Now took out item %_ from xs." % [y1])
+}
+which prints out
+\code{
+Now took out item and from xs.
+}
+
+Here is the standard pattern for printing out all the items in a sequence. 
+\code{
+while not empty?(xs) :
+   println("Next item is %_" % [next(xs)])
+}
+which prints out
+\code{
+Next item is Timon
+Next item is and
+Next item is Pumbaa
+Next item is are
+Next item is good
+Next item is friends.
+}
+
+\section{Writing a Sequence Function}
+Let's now write a function that takes a sequence argument. \code{cum-sum} takes a sequence of integers, \code{xs}, and returns a vector containing the cumulative sum of all the numbers in \code{xs}.
+\code{
+defn cum-sum (xs:Seq<Int>) :
+   val ys = Vector<Int>()
+   var accum = 0
+   while not empty?(xs) :      
+      accum = accum + next(xs)
+      add(ys, accum)
+   ys
+}
+Let's try it out on some numbers.
+\code{
+defn main () :
+   val xs = [1, 1, 3, 1, 5, 6, 2, 3, 8]
+   println(cum-sum(to-seq(xs)))
+
+main()
+}
+Compiling and running the above prints out
+\code{
+[1 2 5 6 11 17 19 22 30]
+}
+
+\subsection{Seqable}
+Notice that in the call to \code{cum-sum} we have to explicitly convert our tuple into a \code{Seq} object using \code{to-seq}. Otherwise Stanza would issue a type error. For convenience, however, it would be better to move the call to \code{to-seq} inside the body of \code{cum-sum} and have \code{cum-sum} accept \italic{any} object that supports \code{to-seq}. 
+
+This brings us to the type \code{Seqable}. Values of type \code{Seqable} support only a single operation: calling \code{to-seq} on a \code{Seqable} object returns a \code{Seq}. \code{Seqable} also accepts a \italic{type parameter} that indicates the type of element it contains. Thus calling \code{to-seq} on a \code{Seqable<Int>} returns a \code{Seq<Int>}.
+
+Let's change our \code{cum-sum} function to accept an object of type \code{Seqable<Int>}.
+\code{
+defn cum-sum (xs:Seqable<Int>) :
+   val xs-seq = to-seq(xs)
+   val ys = Vector<Int>()
+   var accum = 0
+   while not empty?(xs-seq) :      
+      accum = accum + next(xs-seq)
+      add(ys, accum)
+   ys
+}
+
+Now our \code{cum-sum} function is general enough to be called with any \code{Seqable} object. This includes ranges, tuples, arrays, vectors, lists (which we will cover later), and even other sequences. Let's try it out.
+\code{
+defn main () :
+   val xs = [1, 1, 3, 1, 5, 6, 2, 3, 8]
+   val ys = to-array<Int>([1, 1, 3, 1, 5, 6, 2, 3, 8])
+   val zs = to-vector<Int>([1, 1, 3, 1, 5, 6, 2, 3, 8])
+   val ws = to-list([1, 1, 3, 1, 5, 6, 2, 3, 8])
+
+   println(cum-sum(xs))
+   println(cum-sum(ys))
+   println(cum-sum(zs))
+   println(cum-sum(ws))
+
+main()
+}
+which prints out
+\code{
+[1 2 5 6 11 17 19 22 30]
+[1 2 5 6 11 17 19 22 30]
+[1 2 5 6 11 17 19 22 30]
+[1 2 5 6 11 17 19 22 30]
+}
+This is the mechanism that allows the core library functions (such as \code{do}) to operate on all sorts of collections. \code{do} just accepts a \code{Seqable} argument. 
+
+And since \code{do} accepts a \code{Seqable} argument, we can actually rewrite our \code{cum-sum} function more elegantly using \code{do}. 
+\code{
+defn cum-sum (xs:Seqable<Int>) :
+   val ys = Vector<Int>()
+   var accum = 0
+   for x in xs do :
+      accum = accum + x
+      add(ys, accum)
+   ys
+}
+
+\section{Lazy Sequences}
+Our \code{cum-sum} function takes a sequence as its argument and returns a vector. This works just fine if we want \italic{all} of the cumulative sums, but what if we want only the first four? Then we're spending a lot of time computing results that we don't need. 
+
+To overcome this, we can rewrite \code{cum-sum} to return a \code{Seq<Int>} instead of a \code{Vector<Int>} where the elements in the returned sequence is computed \italic{on-demand}. 
+\code{
+defn cum-sum (xs:Seqable<Int>) :
+   var accum = 0
+   val xs-seq = to-seq(xs)
+   new Seq<Int> :
+      defmethod empty? (this) :
+         empty?(xs-seq)
+      defmethod peek (this) :
+         accum + peek(xs-seq)
+      defmethod next (this) :
+         accum = peek(this)
+         next(xs-seq)
+         accum
+}
+Now \code{cum-sum} returns a \italic{lazy} sequence where items are computed as they're needed. To demonstrate this, let's call \code{cum-sum} on an \italic{infinite} range of numbers, and print out the first 10 elements.
+\code{
+defn main () :
+   val xs = 1 to false by 3
+   val ys = cum-sum(xs)
+   for i in 0 to 10 do :
+      println("Item %_ is %_." % [i, next(ys)])
+
+main()
+}
+Compiling and running the above gives us
+\code{
+Item 0 is 1.
+Item 1 is 5.
+Item 2 is 12.
+Item 3 is 22.
+Item 4 is 35.
+Item 5 is 51.
+Item 6 is 70.
+Item 7 is 92.
+Item 8 is 117.
+Item 9 is 145.
+}
+Thus \code{ys} is an \italic{infinite} sequence of integers containing the cumulative sum of another infinite sequence of integers. 
+
+\subsection{seq}
+Creating a sequence by calling a function repeatedly on the items from another sequence is a common operation, so it is included in Stanza's core library as the \code{seq} operating function. The \code{cum-sum} function can be rewritten using \code{seq} like this.
+\code{
+defn cum-sum (xs:Seqable<Int>) :
+   var accum = 0
+   for x in xs seq :
+      accum = accum + x
+      accum
+}
+
+\section{Using The Sequence Library}
+Now that we've been introduced to sequences, we can unveil the full power of Stanza's core library. As mentioned in an earlier chapter, Stanza encourages users to architect their programs by defining a small set of fundamental operations on each type, and then augment that with a large library of derived operations for those types. Stanza's sequence library is structured in such a way.
+
+The set of fundamental operations for a \code{Seq} is very small, comprised of just \code{empty?}, \code{peek}, and \code{next}. But Stanza includes a large library of useful functions for manipulating sequences. These functions are roughly categorized into three groups: sequence creators, sequence operators, and sequence reducers. Independently of this categorization, a large number of these functions are also \italic{operating functions} and can be used with the for construct.
+
+\subsection{Sequence Creators}
+Sequence creators are functions that take non-\code{Seq} arguments and create and return \code{Seq} objects. In typical programming, most sequences you manipulate will have been created with a sequence creator.
+
+\subsection{to-seq}
+The most commonly used sequence creator is the \code{to-seq} function, which works on any \code{Seqable} object. You've already seen usages of it for converting tuples, arrays, vectors, and ranges to sequences.
+
+\subsection{repeatedly}
+\code{repeatedly} takes an argument function, \code{f}, and creates an infinite sequence from the results of calling \code{f} repeatedly. Here is an example of using it to create a sequence containing all the positive powers of 2. 
+\code{
+var x = 1L
+val xs = repeatedly $ fn () :
+   val cur-x = x
+   x = x * 2L
+   cur-x
+}
+Let's print out the first 10 elements.
+\code{\#{
+do(println{next(xs)}, 0 to 10)
+\#}}
+which prints out
+\code{
+1
+2
+4
+8
+16
+32
+64
+128
+256
+512
+}
+
+\subsection{repeat-while}
+\code{repeat-while} takes an argument function, \code{f}, and creates an infinite sequence by calling \code{f} repeatedly. \code{f} must return a \code{Maybe} object. The returned sequence contains all the wrapped objects in all the \code{One} objects returned by \code{f} and ends the first time \code{f} returns a \code{None} object.
+
+Here is an example of using it to create a sequence containing all the positive powers of 2 that are less than 2000.
+\code{
+var x = 1L
+var xs = repeat-while $ fn () :
+   val cur-x = x
+   if cur-x < 2000L :
+      x = x * 2L
+      One(cur-x)
+   else :
+      None()
+}
+Let's print out all the items in \code{xs}.
+\code{
+do(println, xs)
+}
+which prints out
+\code{
+1
+2
+4
+8
+16
+32
+64
+128
+256
+512
+1024
+}
+
+\subsection{Sequence Operators}
+Sequence operators are functions that take \code{Seq} (or \code{Seqable}) arguments and create and return \code{Seq} objects. The lazy \code{cum-sum} function that we implemented is an example of a sequence operator. 
+
+\subsection{cat}
+One of the simplest sequence operators is the \code{cat} function which simply concatenates two sequences together to form a longer sequence.
+Here is an example.
+\code{
+val xs = ["Patrick", "Luca", "Emmy"]
+val ys = ["Sunny", "Whiskey", "Rummy"]
+val zs = cat(xs, ys)
+do(println, zs)
+}
+which prints out
+\code{
+Patrick
+Luca
+Emmy
+Sunny
+Whiskey
+Rummy
+}
+
+\subsection{join}
+\code{join} is another simple sequence operator that takes a sequence, \code{xs}, and a joiner item, \code{x}, and creates a \italic{lazy} sequence by inserting \code{x} in between each item in \code{xs}.
+Here is an example.
+\code{
+val xs = ["Patrick", "Luca", "Emmy"]
+val zs = join(xs, "and")
+do(println, zs)
+}
+which prints out
+\code{
+Patrick
+and
+Luca
+and
+Emmy
+}
+
+\subsection{take-n}
+The \code{take-n} function takes an integer, \code{n}, and a sequence, \code{xs}, and returns a \italic{lazy} sequence consisting of the first \code{n} elements in \code{xs}. It is a fatal error to call \code{take-n} on a sequence with less than \code{n} items.
+Here is an example of using \code{take-n} to print out the first 10 items in an infinite range.
+\code{
+val xs = 0 to false by 13
+do(println, take-n(10, xs))
+}
+which prints out
+\code{
+0
+13
+26
+39
+52
+65
+78
+91
+104
+117
+}
+
+\subsection{filter}
+The \code{filter} function takes a predicate function, \code{f}, and a sequence, \code{xs}, and returns a \italic{lazy} sequence consisting only of the items in \code{xs} for which calling \code{f} on them returns \code{true}. \code{filter} is also an operating function.
+Here is an example of using \code{filter} to print out only the positive items in a sequence.
+\code{\#{
+val xs = [1, 3, -2, -7, 3, -8, 9, 10, -3]
+val ys = filter({_ > 0}, xs)
+do(println, ys)   
+\#}}
+which prints out
+\code{
+1
+3
+3
+9
+10
+}
+
+\subsection{seq}
+The \code{seq} function is the most commonly used sequence operator. It takes a function, \code{f}, and a sequence, \code{xs}, and returns a \italic{lazy} sequence comprised of the results of calling \code{f} on each item in the sequence.
+Here is an example of printing out the length of each string in a sequence.
+\code{
+val xs = ["Patrick", "Luca", "Emmy", "Sunny", "Whiskey", "Rummy"]
+val ys = seq(length, xs)
+do(println, ys)
+}
+which prints out
+\code{
+7
+4
+4
+5
+7
+5
+}
+
+\subsection{Sequence Reducers}
+Sequence reducers are functions that take \code{Seq} (or \code{Seqable}) arguments and return non-\code{Seq} objects. 
+
+We have already been introduced to and have been using a number of these, such as \code{do}, \code{find}, \code{first}, \code{index-when}, \code{all?}, \code{none?}, and \code{any?}. We'll take this opportunity to say that they each accept any \code{Seqable} object as their argument. 
+
+We'll show you a handful more useful reducers here, but you are encouraged to read the reference documentation for a listing of all of them. 
+
+\subsection{contains?}
+\code{contains?} takes a sequence, \code{xs}, and an item, \code{y}, and returns \code{true} if \code{xs} contains \code{y}. Otherwise it returns \code{false}.
+\code{
+val xs = ["Patrick", "Luca", "Emmy"]
+println(contains?(xs, "Emmy"))
+println(contains?(xs, "Emily"))
+}
+prints out
+\code{
+true
+false
+}
+
+\subsection{index-of}
+\code{index-of} takes a sequence, \code{xs}, and an item, \code{y}, and returns the index of the first occurrence of \code{y} in \code{xs}. If \code{y} never appears in \code{xs}, then \code{false} is returned.
+\code{
+val xs = ["Patrick", "Luca", "Emmy"]
+println(index-of(xs, "Emmy"))
+println(index-of(xs, "Emily"))
+}
+prints out
+\code{
+2
+false
+}
+
+\subsection{unique}
+\code{unique} takes a sequence, \code{xs}, and returns a \italic{list} containing all the items in \code{xs} but with duplicates removed. 
+\code{
+val xs = ["Patrick", "Luca", "Luca", "Emmy", "Patrick", "Emmy"]
+println(unique(xs))
+}
+prints out
+\code{
+("Patrick" "Luca" "Emmy")
+}
+
+\subsection{to-array}
+\code{to-array} creates a new array containing all the items in its given sequence. It takes a single \italic{type argument} to indicate the element type of the array. We will discuss type arguments when we introduce parametric polymorphism. 
+Here is an example.
+\code{
+val xs = ["Patrick", "Luca", "Emmy"]
+println(to-array<String>(xs))
+}
+prints out
+\code{
+["Patrick" "Luca" "Emmy"]
+}
+
+\subsection{to-vector}
+\code{to-vector} creates a new vector containing all the items in its given sequence. Like \code{to-array}, it also takes a single type argument to indicate the element type of the vector. 
+Here is an example.
+\code{
+val xs = ["Patrick", "Luca", "Emmy"]
+println(to-vector<String>(xs))
+}
+
+\subsection{to-list}
+\code{to-list} creates a new \italic{list} containing all the items in its given sequence. Note that unlike \code{to-array} and \code{to-vector}, \code{to-list} does \italic{not} take a type argument. We will cover lists in more detail when we talk about programming with immutable datastructures. For now, you can treat them just as another type of collection. And we will explain why \code{to-list} does not require a type argument in the chapter on parametric polymorphism.
+Here is an example.
+\code{
+val xs = ["Patrick", "Luca", "Emmy"]
+println(to-list(xs))
+}
+which prints out
+\code{
+("Patrick" "Luca" "Emmy")
+}
+
+\subsection{reduce}
+\code{reduce} takes a binary operator, \code{f}, an initial item, \code{x0}, and a sequence, \code{xs}. If \code{xs} is empty then \code{reduce} returns \code{x0}. If \code{xs} contains one item, then \code{reduce} returns the result of calling \code{f} on \code{x0} and the item in \code{xs}. If \code{xs} contains two items, then \code{reduce} returns the result of calling \code{f} on \code{x0} and the first item in \code{xs}, and then calling \code{f} again on that result and the second item in \code{xs}. If \code{xs} contains three items, then \code{reduce} returns the result of calling \code{f} on \code{x0} and the first item in \code{xs}, then calling \code{f} again on that result and the second item in \code{xs}, and then calling \code{f} again on that result and the third item in \code{xs}. Et cetera. 
+
+Here is an example of using the \code{bit-or} operator to compute the bitwise or of every integer in a tuple.
+\code{
+val xs = [1, 5, 18, 92, 1, 3]
+val y = reduce(bit-or, 0, xs)
+println(y)
+}
+which prints out
+\code{
+95
+}
+
+\section{Collection versus Seqable}
+Consider the following definition of \code{print-odd-then-even}, a function that first prints all the odd integers in a sequence, and then prints all the even integers in the sequence.
+\code{\#{
+defn print-odd-then-even (xs:Seqable<Int>) :
+   val odd = filter({_ % 2 != 0}, xs)
+   val even = filter({_ % 2 == 0}, xs)
+   print("Odd integers: ")
+   println-all(join(odd, ", "))
+   print("Even integers: ")
+   println-all(join(even, ", "))
+\#}}
+Because we declared \code{print-odd-then-even} to accept an argument of type \code{Seqable}, we are able to call it on a variety of different types of collections. Let's try a few.
+\code{
+defn main () :
+   val xs = [1, 2, 3, 4, 5, 6, 7, 8]
+   val ys = to-array<Int>([1, 2, 3, 4, 5, 6, 7, 8])
+   val zs = to-vector<Int>([1, 2, 3, 4, 5, 6, 7, 8])
+   val ws = 1 through 8
+   
+   println("On tuples")
+   print-odd-then-even(xs)
+
+   println("On arrays")
+   print-odd-then-even(ys)
+
+   println("On vectors")
+   print-odd-then-even(zs)
+
+   println("On ranges")
+   print-odd-then-even(ws)
+
+main()   
+}
+It prints out
+\code{
+On tuples
+Odd integers: 1, 3, 5, 7
+Even integers: 2, 4, 6, 8
+On arrays
+Odd integers: 1, 3, 5, 7
+Even integers: 2, 4, 6, 8
+On vectors
+Odd integers: 1, 3, 5, 7
+Even integers: 2, 4, 6, 8
+On ranges
+Odd integers: 1, 3, 5, 7
+Even integers: 2, 4, 6, 8
+}
+demonstrating that it does the same thing regardless of the type of collection. 
+
+But now let's try calling it on a \code{Seq}. All \code{Seq} objects are also trivially instances of \code{Seqable}. Calling \code{to-seq} on a \code{Seq} object simply returns itself. 
+\code{
+defn main2 () :
+   val xs = to-seq(1 through 8)
+   println("On seqs")
+   print-odd-then-even(xs)
+
+main2()
+}
+This print outs
+\code{
+On seqs
+Odd integers: 1, 3, 5, 7
+Even integers: 
+}
+What is happening? How come the even integers didn't get printed out? 
+
+The problem lies in the two calls to \code{filter}.
+\code{\#{
+val odd = filter({_ % 2 != 0}, xs)
+val even = filter({_ % 2 == 0}, xs)
+\#}}
+\code{filter} creates a lazy sequence, so iterating over the result of \code{filter} also requires iterating over the sequence it was constructed from. Thus printing out \code{odd} also requires iterating over \code{xs}, in which case, after printing out all the odd integers, we will have iterated through \code{xs} once completely and it will now be empty. At this point, \code{even} is also empty, as the sequence it was constructed from is now empty.
+
+The fundamental problem is that \code{Seq} is a subtype of \code{Seqable}. Calling \code{to-seq} twice on a \code{Seq} object does \italic{not} return two independent sequences. For these purposes, Stanza provides a subtype of \code{Seqable} called \code{Collection}. Identical to \code{Seqable}, \code{to-seq} is the only fundamental operation supported by \code{Collection}. The crucial difference is that \code{Seq} is not a subtype of \code{Collection}. This means that each call to \code{to-seq} on a \code{Collection} returns an independent sequence. 
+
+Let's rewrite our \code{print-odd-then-even} function with the appropriate type annotation.
+\code{\#{
+defn print-odd-then-even (xs:Collection<Int>) :
+   val odd = filter({_ % 2 != 0}, xs)
+   val even = filter({_ % 2 == 0}, xs)
+   print("Odd integers: ")
+   println-all(join(odd, ", "))
+   print("Even integers: ")
+   println-all(join(even, ", "))
+\#}}
+
+You may verify that calling \code{print-odd-then-even} with all the collections in \code{main} still behaves as before. The important point is that attempting to compile \code{main2} now gives this error.
+\code{
+Cannot call function print-odd-then-even of type Collection<Int> -> False
+with arguments of type (Seq<Int>).
+}
+With the appropriate type annotation, Stanza now prevents us from calling \code{print-odd-then-even} incorrectly.
+
+As a rule of thumb, you should always write your functions to accept \code{Collection} objects by default. If you are sure that you iterate through the sequence only once, then you may change it to accept \code{Seqable} objects in order to be able to pass it a \code{Seq}.
+
+\section{Revisiting Stack}
+Let us now revisit our \code{Stack} type from chapter 4. Here is a (slightly cleaned up) listing of its definitions.
+\code{
+deftype Stack
+defmulti push (s:Stack, x:String) -> False
+defmulti pop (s:Stack) -> String
+defmulti empty? (s:Stack) -> True|False
+
+defn Stack (capacity:Int) -> Stack :
+   val items = Array<String>(capacity)
+   var size = 0
+   new Stack :
+      defmethod push (this, x:String) :
+         if size == capacity : fatal("Stack is full!")
+         items[size] = x
+         size = size + 1
+      defmethod pop (this) :
+         if size == 0 : fatal("Stack is empty!")
+         size = size - 1
+         items[size]
+      defmethod empty? (this) :
+         size == 0
+      defmethod print (o:OutputStream, this) :
+         print(o, "Stack containing [")
+         print-all(o, join(take-n(size, items), " "))
+         print(o, "]")
+}
+It's quite a basic definition, allowing us to push and pop items but not much else. We cannot find the index of a specific item, or determine whether it contains any capitalized strings, or get a listing of all of its unique elements. We cannot even iterate through it. The following
+\code{
+val s = Stack(10)
+push(s, "Timon")
+push(s, "and")
+push(s, "Pumbaa")
+
+for x in s do :
+   println(x)
+}
+gives us this error if we try to compile it.
+\code{
+No appropriate function do for arguments
+of type (? -> False, Stack). Possibilities are:
+   do: <?T> . (T -> ?, Seqable<?T>) -> False
+   do: <?T, ?S> . ((T, S) -> ?,
+                   Seqable<?T>,
+                   Seqable<?S>) -> False
+   do: <?T, ?S, ?U> . ((T, S, U) -> ?, Seqable<?T>,
+                       Seqable<?S>,
+                       Seqable<?U>) -> False
+}
+It says that there are multiple definitions of \code{do} but all of them require a \code{Seqable} argument, and \code{Stack} is not a \code{Seqable}.  
+
+We shall extend the functionality of \code{Stack} by declaring it as a subtype of \code{Collection}. 
+\code{
+deftype Stack <: Collection<String>
+}
+The mandatory minimal implementation of \code{Collection} is \code{to-seq}, so we need to now provide a method for it. Here is now our extended \code{Stack} construction function.
+\code{
+defn Stack (capacity:Int) -> Stack :
+   val items = Array<String>(capacity)
+   var size = 0
+   new Stack :
+      defmethod push (this, x:String) :
+         if size == capacity : fatal("Stack is full!")
+         items[size] = x
+         size = size + 1
+      defmethod pop (this) :
+         if size == 0 : fatal("Stack is empty!")
+         size = size - 1
+         items[size]
+      defmethod empty? (this) :
+         size == 0
+      defmethod print (o:OutputStream, this) :
+         print(o, "Stack containing [")
+         print-all(o, join(this, " "))
+         print(o, "]")
+      defmethod to-seq (this) :
+         take-n(size, items)
+}
+Our implementation of \code{to-seq} simply calls \code{take-n} to retrieve the first \code{size} elements from the backing array \code{items}.
+
+Now let's try exercising the power of our new extended \code{Stack} type. 
+\code{\#{
+defn main () :
+   val s = Stack(10)
+   for x in ["Timon", "Timon", "and", "Pumbaa", "Pumbaa"] do :
+      push(s, x)
+
+   println("1. Contents of s")
+   println(s)
+
+   println("\n2. Index of Pumbaa")
+   println(index-of(s, "Pumbaa"))
+
+   println("\n3. Does it contain any capitalized strings?")
+   println(any?(upper-case?{_[0]}, s))
+
+   println("\n4. Are all strings capitalized?")
+   println(all?(upper-case?{_[0]}, s))
+
+   println("\n5. What are the capitalized strings?")
+   val cap-s = filter(upper-case?{_[0]}, s)
+   println-all(join(cap-s, ", "))
+
+   println("\n6. What are its unique elements?")
+   println(unique(s))
+
+main()
+\#}}
+Compiling and running the above prints out
+\code{
+1. Contents of s
+Stack containing [Timon Timon and Pumbaa Pumbaa]
+
+2. Index of Pumbaa
+3
+
+3. Does it contain any capitalized strings?
+true
+
+4. Are all strings capitalized?
+false
+
+5. What are the capitalized strings?
+Timon, Timon, Pumbaa, Pumbaa
+
+6. What are its unique elements?
+("Timon" "and" "Pumbaa")
+}
+
+This example shows us the full advantage of structuring your programs to contain a large library of derived operations. With a two line change to our definition of the \code{Stack} object, we've provided it the full capabilities of Stanza's sequence library.  

@@ -1,0 +1,18 @@
+\header{Our Philosophy}
+
+Most programming is not difficult. It rarely requires any complicated mathematics or algorithms. Applications consist of a number of parts working together, and no single part is typically hard to write. But as applications grow in sophistication, we require more and more parts, and getting each and every one of them right and working together is hard. As human beings, it is inevitable that we will forget some tiny detail, and when that happens everything comes crashing down.
+
+In application programming, it is not important to be clever or smart. But it is important to be systematic, to be organized, and for programs to be carefully \italic{architected}. Every feature in Stanza is designed to help programmers architect their programs.
+
+Stanza is designed around the ideal that good architecture revolves around separating concerns. Different aspects of a program should be attacked in isolation and then composed together into a complete program. The mark of a good language is the power it offers users to divide large problems into smaller ones.
+
+\list{
+\item Stanza's class-less object system allows users to attack the design of the type hierarchy of their program separately from the design of what methods each type should support. 
+\item Stanza's coroutine system allows users to attack the control flow of an algorithm separately from its data dependencies. 
+\item Stanza's syntax extension system allows users to attack the design of the behaviour and features of their framework separately from the design of its syntax.
+\item Stanza's optional type system allows users to attack the design of the runtime behaviour and semantics of their program before attacking the static relationships between the types in their program.
+}
+
+We deeply believe that good architecture can lead to great software. Stanza is our demonstration that programmers can develop ideas into prototypes, then into polished applications in a single, elegant, language.
+
+  -Patrick

@@ -1,0 +1,23 @@
+defpackage debugmacros :
+  import core
+  import collections
+  import stz/core-macros
+
+defsyntax mydebugmacros :
+  import exp4 from core
+
+  defrule exp4 = (PROBE(?myvariable)) :
+    println("Implementation of PROBE macro.")
+    println("myvariable = %~" % [myvariable])
+
+    val format-string = to-string("DEBUG: %_ = %%~" % [name(unwrap-token(myvariable))])
+    println("format-string = %~" % [format-string])
+
+    val form = qquote(println(~ format-string % [~ myvariable]))
+    println("form = %~" % [form])
+
+    val result = parse-syntax[core / #exp](form)
+    println("result = %~" % [result])
+    println("\n")
+
+    result

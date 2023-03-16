@@ -1,0 +1,14 @@
+#use-added-syntax(mydebugmacros)
+defpackage trymacros :
+  import core
+  import collections
+
+defn main () :
+  val x = 10
+  val y = "Hello world"
+  val z = x * 10
+  PROBE(x)
+  PROBE(y)
+  PROBE(z)
+
+main()

@@ -1,0 +1,1444 @@
+\chapter{The Very Basics}{
+This chapter introduces the basic programming constructs in Stanza. After this chapter, you'll be able to write basic programs that do simple things.
+}
+This chapter introduces the basic programming constructs in Stanza. After this chapter, you'll be able to write basic programs that do simple things.
+
+\section{Project Framework}
+Follow these steps to set up a project framework.
+
+\subsection{Create basics.stanza}
+In your \code{stanzaprojects} directory, create a file called \code{basics.stanza} containing
+\code{
+defpackage mypackage :
+   import core
+
+defn main () :
+   println("Code goes here")
+
+main()
+}
+Again, make sure you do not forget the space between the \code{main} and the \code{()}. We'll explain why this is necessary when we discuss Stanza's lexical structure.
+
+\subsection{Compile and Run}
+Compile and run the basic framework by typing the following in the terminal
+\code{
+stanza basics.stanza -o basics
+./basics
+}
+
+The basic framework should print out
+\code{
+Code goes here
+}
+
+Follow the chapter and try out the examples by replacing the \code{println} command with the example code.
+
+\subsection{Indentation}
+Try changing the basic framework to
+\code{
+defpackage mypackage :
+import core
+
+defn main () :
+   println("Code goes here")
+
+main()
+}
+and try to compile it. It won't work. My Stanza installation says
+\code{
+Syntax Error: Import clause expected here.
+}
+
+Indentation is important in Stanza programs. Be careful when trying out the examples. 
+
+And don't use tabs. Stanza won't let you. We don't like tabs.
+
+\section{Printing Simple Messages}
+Printing is important. It's the only way to observe what your program is doing.
+
+\subsection{Strings}
+This is a \italic{string}. 
+\code{
+"Timon and Pumbaa"
+}
+It's a bunch of characters surrounded in double quotes.
+
+\subsection{Printing Strings}
+Use the \code{println} function to print strings.
+\code{
+println("Timon")
+println("and")
+println("Pumbaa")
+}
+prints out
+\code{
+Timon
+and
+Pumbaa
+}
+
+\subsection{Print Without a New Line}
+Use the \code{print} function to print strings without starting a new line at the end.
+\code{
+print("Timon")
+print(" and")
+print(" Pumbaa")
+}
+prints out
+\code{
+Timon and Pumbaa
+}
+
+\subsection{Ints}
+This is an \italic{integer}.
+\code{
+42
+}
+It's a bunch of digits, and represents the integers that you were taught in school.
+
+\subsection{Printing Integers}
+The \code{print} and \code{println} function works on integers too.
+\code{
+print(1)
+print(" and a ")
+print(2)
+print(" and a ")
+println(1)
+println(2)
+println(3)
+println(4)
+}
+prints out
+\code{
+1 and a 2 and a 1
+2
+3
+4
+}
+
+Actually \code{print} and \code{println} works on a lot of things. We'll learn about that later.
+
+\subsection{Printing Multiple Things}
+Calling \code{println} repeatedly to print multiple things is tedious. Use \code{println-all} to print out multiple things.
+\code{
+println-all([1 " and a " 2 " and a "])
+println-all([1 2 3 4 "."])
+}
+prints out
+\code{
+1 and a 2 and a 
+1234.
+}
+
+If you don't want to start a new line at the end, use \code{print-all} instead.
+\code{
+print-all([1 " and a " 2 " and a "])
+println-all([1 2 3 4 "."])
+}
+prints out
+\code{
+1 and a 2 and a 1234.
+}
+
+Don't fret about the \code{[]} brackets for now. They create \italic{tuples}. We'll learn about those later.
+
+\subsection{Formatted Printing}
+Sometimes it's tedious to print multiple things even with \code{println-all}. Here's how to print things according to a \italic{format string}.
+\code{
+println("%_ and a %_ and a %_, %_, %_, %_!" % [1 2 1 2 3 4])
+}
+prints out
+\code{
+1 and a 2 and a 1, 2, 3, 4!
+}
+
+Notice that you're calling the same \code{println} function that you've already learned. The \code{%} operator is what's doing all the work. We'll learn other operators later.
+
+\subsection{Where's the Commas?}
+Some of you may have noticed the lack of commas in the examples. Try adding them back in.
+\code{
+println("%_ and a %_ and a %_, %_, %_, %_!" % [1, 2, 1, 2, 3, 4])
+}
+still prints out
+\code{
+1 and a 2 and a 1, 2, 3, 4!
+}
+
+Commas are treated identically to spaces in Stanza. (Unless they are part of a string.) Try going crazy!
+\code{
+println("%_ and a %_ and a %_, %_, %_, %_!" % [1 2,1,2,,,,3,,,,,4])
+}
+The above still prints out what it used to. But don't do that. That was just an example.
+
+\section{Lexical Structure}
+Before compilation, a Stanza program is \italic{lexed} into individual identifiers, numbers, and lists. Here are the rules that you'll need to know.
+
+\subsection{Lexemes}
+The first thing that Stanza does is break down a program into a sequence of \italic{lexemes}, where each lexeme is separated by either whitespace or one of the following characters.
+\code{\#{
+, . : & | < > [ ] { } ( )
+\#}}
+
+\subsection{Numbers}
+A number is a lexeme that begins with a digit, or a hyphen followed by a digit. Here are some examples.
+\code{
+3
+50
+-13
+100L
+}
+
+\subsection{Operators}
+An operator is any lexeme that is made up of the following characters.
+\code{\#{
+~ ! @ # $ % ^ * + - = / . : & | < >
+\#}}
+Here are some example operators.
+\code{\#{
++
+*
+&
+&&
++=
+>>>
+<+>
+::=
+<^.^>
+\#}}
+
+\subsection{Identifiers}
+An identifier is any lexeme that is not a number or operator. Here are some examples.
+\code{
+x
+timon
+timon_and_pumbaa
+timon-and-pumbaa
+#timon
+$timon
+timon?
+x+one
+x1
+x+1-3
+}
+
+\subsection{Opening Brackets}
+Syntactically, an identifier followed \italic{immediately} by a opening bracket character is treated \italic{differently} than if the two were separated by spaces. For example
+\code{
+f(x)
+}
+is syntactically different than
+\code{
+f (x)
+}
+The former calls the function \code{f} with \code{x}. The latter is simply the function \code{f} followed by the value \code{x}.
+
+This is similar to how
+\code{
+ab
+}
+is syntactically different than
+\code{
+a b
+}
+The two mean different things. Please keep this in mind when following the examples in this book. For example, this is why it was stressed to you to remember the space after \code{main} in
+\code{
+defn main () :
+   ...
+}
+
+Additionally, 
+\code{
+f[x]
+}
+is syntactically different than
+\code{
+f [x]
+}
+and
+\code{\#{
+f{x}
+\#}}
+is syntactically different than
+\code{\#{
+f {x}
+\#}}
+and
+\code{\#{
+f<x>
+\#}}
+is syntactically different than
+\code{\#{
+f <x>
+\#}}
+
+
+
+\section{Comments}
+Comments begin with the \code{;} character, and every following character in the line will be regarded as a comment and won't affect the behaviour of the code. Here's an example of using comments.
+\code{
+;My favorite characters
+println("Timon")  ;The small one
+println("and")
+println("Pumbaa") ;and the smart one
+}
+Code without comments is very difficult to understand. Use comments often.
+
+\section{Operators}
+\subsection{Basic Arithmetic}
+To add two numbers together, use the \code{+} operator. 
+\code{
+println(10 + 32)
+}
+prints out
+\code{
+42
+}
+
+That means the result of adding \code{32} to \code{10} is \code{42}. We say that the expression \code{10 + 32} \italic{returns} \code{42}. We'll learn later why we use the word \italic{returns}. 
+
+Here are examples of using the other arithmetic operators.
+\code{
+68 + 32 ;Addition
+68 - 32 ;Subtraction
+68 * 32 ;Multiplication
+68 / 32 ;Division
+68 % 32 ;Modulus
+}
+
+\subsection{Bitwise Arithmetic}
+
+Here are examples of using the bitwise operators.
+\code{
+24 << 2 ;Left Bit Shift
+24 >> 2 ;Right Bit Shift
+24 >>> 2 ;Arithmetic Right Bit Shift
+24 & 2 ;Bitwise And
+24 | 2 ;Bitwise Or
+24 ^ 2 ;Bitwise Xor
+}
+
+\subsection{Operator Precedence}
+
+All the operators are \italic{left associative}. This means that in the following expression
+\code{
+1 + 2 - 3 + 4 - 5 + 6
+}
+the operators are applied left to right. The above is equivalent to
+\code{
+((((1 + 2) - 3) + 4) - 5) + 6
+}
+
+In expressions containing a mix of operators, the operators with highest precedence are grouped together first, followed by the operators with second highest precedence, until you reach the operators with lowest precedence. The shift operators (\code{<<}, \code{>>}, \code{>>>}) have precedence 3. The multiply, divide, modulo, bitwise and, and bitwise xor operators (\code{*}, \code{/}, \code{%}, \code{&}, \code{^}) have precedence 2. Addition, subtraction, and bitwise or, (\code{+}, \code{-}, \code{|}), have precedence 1.
+
+The following expression
+\code{
+3 + 2 << 2 * 3 + 3 << 1
+}
+first groups the precedence 3 operators
+\code{
+3 + (2 << 2) * 3 + (3 << 1)
+}
+followed by the precedence 2 operators
+\code{
+3 + ((2 << 2) * 3) + (3 << 1)
+}
+followed by the precedence 1 operators
+\code{
+(3 + ((2 << 2) * 3)) + (3 << 1)
+}
+
+\subsection{Unary Operators}
+Here's how to negate a number.
+\code{
+(- 3)
+}
+The parentheses are not optional! 
+
+Here's how to flip all the bits in a number.
+\code{
+(~ 3)
+}
+Again, the parentheses are not optional! This is different than most other languages. There's a good reason for this. But don't forget them!  
+
+\section{Values}
+\subsection{Syntax}
+The statement
+\code{
+val a:Int = 3 * 71
+}
+calculates the result of \code{3 * 71} and \italic{stores} the result in the \italic{value} \code{a}. 
+
+After the storing the result in \code{a}, you can then use that value afterwards by name.
+\code{
+println(a)
+}
+
+You cannot change what is stored in a value once it is initialized. 
+
+\subsection{Breaking up Complicated Expressions}
+
+You can use values to break up complicated expressions into smaller ones.
+\code{
+println(1 + 30 * 2 * 3 - 30 / (3 << 1))
+}
+can be rewritten as
+\code{
+val a:Int = 30 * 2 * 3
+val b:Int = 30 / (3 << 1)
+println(1 + a - b)
+}
+
+\subsection{Types}
+The \code{Int} in the previous example is called a \italic{type annotation}. It says that only an \italic{integer} can be stored in \code{a}. 
+
+Stanza won't let you store anything else into \code{a}. We can try to store a string
+\code{
+val a:Int = "Timon"
+}
+but attempting to compile it gives us this error.
+\code{
+Cannot assign expression of type String to value a with declared type Int.
+}
+
+If you want to store a string into \code{a}, then you have to declare it like this.
+\code{
+val a:String = "Timon"
+}
+
+Later, we will learn more about types and about types other than \code{Int} and \code{String}. 
+
+\subsection{Type Inference}
+If you leave off the type annotation
+\code{
+val a = 3 * 71
+}
+then Stanza figures out the type based on the expression it's initialized with.
+
+Most Stanza programmers leave off type declarations for values.
+
+\section{Variables}
+
+A variable is declared like a value, but using \code{var} instead of \code{val}.
+\code{
+var a:Int = 10 + 30
+}
+
+Just like a value, the result of calculating \code{10 + 30} is stored in the variable \code{a}. 
+
+And just like a value, you can refer to it by name afterwards.
+\code{
+println(a)
+}
+
+The difference is that, even after it is initialized, you can still store something \italic{else} into a variable. 
+\code{
+var a:Int = 3 * 71
+println(a)
+a = -10
+println(a)
+}
+prints out
+\code{
+213
+-10
+}
+
+After we print out \code{a} for the first time, we use the \code{=} operator to store \code{-10} into \code{a}. The second time we print out \code{a}, it prints out \code{-10}.
+
+\subsection{Types}
+Just like values, a variable's type annotation restricts what you can store inside it. Here's what happens when we attempt to store a string into \code{a}.
+\code{
+var a:Int = 3 * 71
+a = "Timon"
+}
+Compiling the above gives us
+\code{
+Cannot assign expression of type String to variable a with declared type Int.
+}
+
+\subsection{Type Inference}
+Just like values, you can leave off the type annotation for a variable.
+\code{
+var a = 3 * 71
+println(a)
+a = -10
+println(a)
+}
+
+\italic{However}, the inferred type for a variable depends upon \italic{all} the values assigned to it, not just the initial one. 
+
+For various reasons, Stanza cannot always infer the type of a variable, as in this example. (Don't mind the functions you don't know. We'll learn them later.) 
+\code{
+var a = 3 * 71
+a = cons(a, List())
+}
+Attempting to compile the above gives us this error.
+\code{
+Could not infer type of variable a.
+}
+
+In these cases, you'll have to provide an explicit type annotation for the variable.
+
+\subsection{Uninitialized Variables}
+Variables don't have to be declared with an initial value. Here's a variable, declared to only hold integers, but with no initial value.
+\code{
+var x:Int
+}
+
+Attempting to read from an uninitialized variable will crash the program. The following program
+\code{
+var x:Int
+println(x)
+}
+when compiled and ran crashes with this error.
+\code{
+FATAL ERROR: Variable is uninitialized.
+}
+
+\section{Functions}
+
+Here's a function that subtracts forty two from its argument.
+\code{
+defn subtract-forty-two (x:Int) -> Int :
+   x - 42   
+}
+
+And here's how you \italic{call} the function.
+\code{
+subtract-forty-two(43)
+}
+
+Here's the complete program.
+\code{
+defpackage mypackage :
+   import core
+
+defn subtract-forty-two (x:Int) -> Int :
+   x - 42   
+
+println(subtract-forty-two(43))
+}
+It prints out:
+\code{
+1
+}
+
+This means that the result of calling \code{subtract-forty-two} with \code{43} is \code{1}. We say that \code{subtract-forty-two(43)} \italic{returned} \code{1}. 
+
+\subsection{Return Value}
+Here's a silly change we can make to \code{subtract-forty-two}. 
+\code{
+defn subtract-forty-two (x:Int) -> Int :
+   x + 43
+   x - 42   
+}
+\code{subtract-forty-two(43)} still returns \code{1} though. The result of the last expression in a function's body is the value returned by the function. 
+
+\subsection{Side Effects}
+Here's another change we can make to \code{subtract-forty-two}.
+\code{
+defn subtract-forty-two (x:Int) -> Int :
+   println("Subtracting 42 from %_." % [x])
+   x - 42   
+}
+
+Now the following code
+\code{
+println(subtract-forty-two(43))
+}
+prints
+\code{
+Subtracting 42 from 43.
+1
+}
+
+The expressions in a function body are evaluated one at a time, but only the result of the last one is returned.
+
+\subsection{Return Type}
+The \code{Int} following the \code{->} in \code{subtract-forty-two} is the function's \italic{return type}. It says that the function must return an integer. 
+
+Stanza won't let you return anything else. If we try to return a string
+\code{
+defn subtract-forty-two (x:Int) -> Int :
+   println("Subtracting 42 from %_." % [x])
+   "Timon"
+}
+then the Stanza compiler gives us this error.
+\code{
+Cannot return an expression of type String for function 
+subtract-forty-two with declared return type Int.
+}
+
+You can leave off the return type annotation
+\code{
+defn subtract-forty-two (x:Int) :
+   println("Subtracting 42 from %_." % [x])
+   x - 42   
+}
+in which case, Stanza will figure out the return type automatically based on the last expression in the function body. In certain cases, Stanza will not be able to figure it out and you'll have to provide it explicitly.
+
+\subsection{Argument Types}
+The \code{:Int} following the \code{x} argument in \code{subtract-forty-two} is the type annotation for the argument. This type annotation does two things. The first is that it restricts what values you can call \code{subtract-forty-two} with. Compiling the following code
+\code{
+subtract-forty-two("Hello")
+}
+gives the error
+\code{
+Cannot call function subtract-forty-two of type Int -> Int
+with arguments of type (String).
+}
+
+The second is that it restricts what you are allowed to do with \code{x}. Here is what happens if we try to use \code{x} as if it were a format string.
+\code{
+defn subtract-forty-two (x:Int) :
+   println(x % [1, 2, 3])
+   x - 42   
+}
+Compiling it gives us this error.
+\code{
+No appropriate function modulo for arguments of type 
+(Int, [Int, Int, Int]). Possibilities are:
+   modulo: (String, Seqable) -> Printable at core/core.stanza:1982.12
+   modulo: (Byte, Byte) -> Byte at core/core.stanza:2444.21
+   modulo: (Int, Int) -> Int at core/core.stanza:2575.12
+   modulo: (Long, Long) -> Long at core/core.stanza:2644.21
+}
+
+Roughly, that error message tells us that there are four different functions called \italic{modulo}, and none of them can called with \code{x} and \code{[1, 2, 3]}. We'll learn later how to interpret that error message more precisely.
+
+\subsection{Example: String Arguments}
+Here is an example of a function that accepts a string as an argument.
+\code{
+defn timon-and-pumbaa-says (format:String) :
+   println(format % ["Timon", "Pumbaa"])
+
+timon-and-pumbaa-says(
+   "%_ says they're fireflies, while %_ says they're big balls of gas.")
+   
+timon-and-pumbaa-says(
+   "When the world turns their back on %_, %_ turns their back on the world.")
+}
+Compiling and running the above prints
+\code{
+Timon says they're fireflies, while Pumbaa says they're big balls of gas.
+When the world turns their back on Timon, Pumbaa turns their back on the world.
+}
+
+We did not provide an explicit return type for \code{timon-and-pumbaa-says}. Thus Stanza figures it out automatically from the result of the last expression, the \code{println}. It turns out that \code{println} returns the value \code{false} which has type \code{False}. We could explicitly provide the return type as well.
+\code{
+defn timon-and-pumbaa-says (format:String) -> False :
+   println(format % ["Timon", "Pumbaa"])
+}
+
+\subsection{Leaving off the Argument Type}
+\italic{Beware}. Argument types are \italic{not} inferred automatically. You can leave off the argument types
+\code{
+defn subtract-forty-two (x) :
+   x - 42   
+}
+but this is \italic{not} equivalent to declaring \code{x} as an \code{Int}.
+
+If you leave off the type annotation for an argument, it means that the argument can be \italic{anything}. You can call the function with whatever you want, and within the body of the function Stanza will let you do whatever you wish with the argument. If you do something wrong then the program will crash when ran.
+
+Here is an \italic{incorrect} program that compiles correctly.
+\code{
+defn subtract-forty-two (x) :
+   println(x % ["Timon", "Pumbaa"])
+   x - 42
+
+subtract-forty-two("%_ and %_ say Hakuna Matata!")
+}
+But when the program is ran, it crashes with this error.
+\code{
+Timon and Pumbaa say Hakuna Matata!
+FATAL ERROR: Cannot cast value to type.
+   at core/core.stanza:2566.12
+   at stanzaprojects/basics.stanza:6.3
+   at stanzaprojects/basics.stanza:8.0
+}
+
+The error message is saying that in the expression \code{x - 42} it could not convert \code{x} into the appropriate type needed by the \code{-} operator (\code{Int}). 
+
+\subsection{The Unknown Type}
+More precisely, leaving off the type annotation for an argument is equivalent to declaring the argument with the \code{?} type. So the above program can be written equivalently as
+\code{
+defn subtract-forty-two (x:?) :
+   println(x % ["Timon", "Pumbaa"])
+   x - 42
+
+subtract-forty-two("%_ and %_ say Hakuna Matata!")
+}
+
+The \code{?} type is very special and forms the foundation of Stanza's optional type system. You can pass \italic{any} value to a location where a \code{?} is expected. \italic{And}, you can use a value of \code{?} type anywhere.
+
+You can use the \code{?} type in variable and value declarations too. Here is an example of using them with variables.
+\code{
+var x:? = "%_ says Hakuna."
+println(x % ["Timon"])
+x = 10 + 32
+println("There are about %_ fireflies in the universe." % [x])
+}
+It prints out
+\code{
+Timon says Hakuna.
+There are about 42 fireflies in the universe.
+}
+
+Notice that we're using \code{x} as a format string in one case, and a number in the other case. The \code{?} type allows us to do this.
+
+\section{Comparisons}
+
+\subsection{Comparison Operators}
+To test whether one integer is smaller than another number, you can use the \code{<} operator. Here's an example.
+\code{
+println(10 < 32)
+}
+It prints out
+\code{
+true
+}
+This means that \code{10} is less than \code{32}. The expression \code{10 < 32} returned the value \code{true}. Conversely, 
+
+\code{
+println(10 > 32)
+}
+prints out
+\code{
+false
+}
+This means that \code{10} is not greater than \code{32}. The expression \code{10 > 32} returned the value \code{false}. 
+
+Here's all the other comparison operators you can use.
+\code{
+10 < 32     ;Less Than
+10 <= 32    ;Less Than or Equal to
+10 > 32     ;Greater Than
+10 >= 32    ;Greater Than or Equal to
+10 == 32    ;Equal
+10 != 32    ;Not Equal
+}
+
+\subsection{Logical Operators}
+You can use the \code{not}, \code{and}, and \code{or} operators to combine the results of multiple comparisons. Here is how to test whether \code{1} is less than \code{3} \italic{and} greater than \code{5}.
+\code{
+println(1 < 3 and 1 > 5)
+}
+
+Here is how to test whether \code{1} is less than \code{3} \italic{or} greater than \code{5}.
+\code{
+println(1 < 3 or 1 > 5)
+}
+
+Here is how to test whether \code{1} is \italic{not} less than \code{3}.
+\code{
+println(not 1 < 3)
+}
+
+\section{If Expressions}
+If expressions let you test whether a value is \code{true} or \code{false} and do different things depending on the result.
+\code{
+val x = 10 < 32
+if x :
+   println("Timon is better!")
+else :
+   println("Pumbaa is better!")
+}
+prints out
+\code{
+Timon is better!
+}
+
+The result of \code{10 < 32} (\code{true}) is stored in \code{x}. Then because \code{x} (the \italic{predicate}) is \code{true}, the \italic{consequent} branch of the if expression is evaluated instead of the \italic{alternate} branch.
+
+Change the \code{<} operator to a \code{>} operator to root for Pumbaa instead.
+
+\subsection{Result of an If Expression}
+If expressions evaluate to a result. The \italic{result} of an if expression is the result of the last expression in the consequent branch if the predicate is \code{true}. Otherwise it is the result of the last expression in the alternate branch.
+
+Here's an example of using the result of an if expression.
+\code{
+val x =
+   if 10 < 32 :
+      "Timon"
+   else :
+      "Pumbaa"
+println("%_ is better!" % [x])
+}
+It prints out the same message as the last example.
+
+\subsection{Default Else Branch}
+If you leave off the \code{else} branch in an if expression, then the if expression simply evaluates to \code{false} if the predicate is not \code{true}. In the following code
+\code{
+if 10 > 32 :
+   println("Timon is better!")
+}
+nothing is ever printed. 
+
+\subsection{Nested If Expressions}
+You can nest if expressions inside other if expressions. The following code prints different messages when x falls in different ranges.
+\code{
+val x = 32
+if x < 0 :
+   println("x is negative!")
+else :
+   if x < 10 :
+      println("x is between 0 and 10")
+   else :
+      if x < 30 :
+         println("x is between 20 and 30")
+      else :
+         println("x is really big!")
+}
+It uses nested if expressions to test a series of conditions.
+
+Because nested if expressions are so common, you are allowed to omit the colon after the \code{else} keyword if it is followed by an \code{if} expression. The above can be rewritten equivalently as
+
+\code{
+val x = 32
+if x < 0 :
+   println("x is negative!")
+else if x < 10 :
+   println("x is between 0 and 10")
+else if x < 30 :
+   println("x is between 20 and 30")
+else :
+   println("x is really big!")
+}
+
+Here's another example. \code{sign} is a function that computes the sign of its argument.
+\code{
+defn sign (x:Int) :
+   if x < 0 :
+      -1
+   else if x == 0 :
+      0
+   else :
+      1
+}
+
+\subsection{True and False}
+The \code{true} and \code{false} values can be created directly simply by referring to them by name. 
+
+The following
+\code{
+val worries? = true
+if worries? :
+   println("Chill out!")
+else :
+   println("Hakuna Matata!")
+}
+prints out
+\code{
+Chill out!
+}
+
+To print \code{Hakuna Matata!} instead, change the \code{true} to \code{false}. 
+
+The value \code{true} has type \code{True}, and the value \code{false} has type \code{False}. 
+
+\section{Expression Sequences}
+
+Multiple expressions can be grouped together as an \italic{expression sequence} by surrounding them with parentheses. 
+\code{
+val x = (println("A"), 42)
+println(x)
+}
+prints out
+\code{
+A
+42
+}
+
+The expressions in an expression sequence are evaluated one at a a time, and the result of the last expression is the result of the expression sequence.
+
+In the above example, the first expression in the sequence, \code{println("A")}, is evaluated, and then the last expression, \code{42}, is the result of the sequence and is stored in \code{x}. \code{x} is then printed to the screen.
+
+\section{Structure Through Indentation}
+
+Some of you may be concerned about Stanza's use of structure through indentation due to how this system has been implemented in the past. Don't worry. Stanza's indentation structuring mechanism is very simple and \italic{predictable}.
+
+The indentation structuring mechanism is governed by a single rule: a line ending colon automatically inserts parentheses around the following indented block.
+
+Thus, after the implicit parentheses have been added, the previous \code{sign} example looks like this.
+\code{
+defn sign (x:Int) : (
+   if x < 0 : (
+      -1)
+   else if x == 0 : (
+      0)
+   else : (
+      1))
+}
+
+A program with no line ending colons can even be written on a single line if desired.
+\code{
+defn sign (x:Int) : (if x < 0 : (-1) else if x == 0 : (0) else : (1))
+}
+
+Here is one more example.
+\code{
+defn hakuna () :
+   println("Timon")
+   println("Pumbaa")
+}
+becomes the following after implicit parentheses are added.
+\code{
+defn hakuna () : (
+   println("Timon")
+   println("Pumbaa"))
+}
+
+Here is \code{hakuna} written out on a single line.
+\code{
+defn hakuna () : (println("Timon") println("Pumbaa"))
+}
+
+As you may have noticed, the indentation mechanism is simply used as a shorthand for creating expression sequences out of indented blocks.
+
+\section{While Loops}
+The following
+\code{
+var x = 1
+while x < 1000 :
+   println("x is %_" % [x])
+   x = x * 2
+}
+prints out
+\code{
+x is 1
+x is 2
+x is 4
+x is 8
+x is 16
+x is 32
+x is 64
+x is 128
+x is 256
+x is 512
+}
+
+Here is the general form.
+\code{
+while predicate : body   
+}
+
+A while loop repeatedly evaluates a block of code so long as the predicate expression evaluates to \code{true}. 
+
+Here is the order in which the while loop does things.
+\list{
+\item Evaluate the predicate.
+\item If the predicate evaluates to \code{false}, then the loop is done.
+\item Otherwise, evaluate the body and then repeat from step 1. 
+}
+
+\section{For "Loops"}
+Stanza's for construct is \italic{extremely} powerful. "Loops" is in double quotes because, strictly speaking, the for construct is not a looping mechanism. But it is often used as one, so we'll explain it here as if it were. Later, we'll learn the general form of the for construct.
+
+\subsection{Counting Loops}
+The following
+\code{
+for i in 0 to 4 do :
+   println("Pumbaa is Better!")
+}
+prints out \code{Pumbaa is Better!} four times. 
+
+The following
+\code{
+for i in 0 to 4 do :
+   println("i is %_" % [i])
+}
+prints out
+\code{
+i is 0
+i is 1
+i is 2
+i is 3
+}
+
+A counting loop has this general form.
+\code{
+for x in start to end do : body
+}
+
+For each integer between \code{start} (inclusive) and \code{end} (exclusive), the body is evaluated once with \code{x} \italic{bound} to that integer. 
+
+\subsection{Range Expressions}
+In the previous example, the expression \code{0 to 4} creates a \code{Range} object. A \code{Range} object represents a sequence of integers between some starting index and optional ending index.
+
+Here's how to create a \code{Range} object that counts up in steps of 2.
+\code{
+0 to 10 by 2
+}
+It represents the numbers \code{0, 2, 4, 6, 8}.
+
+The following
+\code{
+for i in 0 to 10 by 2 do :
+   println("i is %_" % [i])
+}
+prints out
+\code{
+i is 0
+i is 2
+i is 4
+i is 6
+i is 8
+}
+
+To make the ending index inclusive rather than exclusive, use the \code{through} keyword rather than the \code{to} keyword.
+\code{
+0 through 10 by 2
+}
+represents the numbers \code{0, 2, 4, 6, 8, 10}.
+
+If you use \code{false} for the ending index, then the range represents an \italic{infinite} sequence of numbers.
+\code{
+0 to false by 3
+}
+represents the numbers \code{0, 3, 6, 9, ...}. 
+
+\section{Labeled Scopes}
+
+\subsection{For Returning Early}
+As you've learned so far, functions return the result of the last expression in its body. But what if you want to return earlier? 
+
+As an example, here's a function that computes the n'th fibonacci number. 
+\code{
+defn fibonacci (n:Int) -> Int :
+   var a:Int = 0
+   var b:Int = 1
+   var i = 0
+   while i < n :
+      val c = a + b
+      a = b
+      b = c
+      i = i + 1
+   b
+}
+
+Let's use a labeled scope to change \code{fibonacci} to return \code{-1} immediately if the argument \code{n} is negative. 
+\code{
+defn fibonacci (n:Int) -> Int :
+   label<Int> myreturn :
+      if n < 0 : myreturn(-1)
+      var a:Int = 0
+      var b:Int = 1
+      var i = 0
+      while i < n :
+         val c = a + b
+         a = b
+         b = c
+         i = i + 1
+      b
+}
+
+The first line within the labeled scope
+\code{
+if n < 0 : myreturn(-1)
+}
+checks to see whether \code{n} is negative, and if it is, it \italic{immediately} returns the value \code{-1} from the function by calling the \italic{exit function} \code{myreturn}. 
+
+\subsection{For Breaking From Loops}
+Labeled scopes are also useful for breaking early out of loops.
+
+Here's how the while loop in \code{fibonacci} could have been written.
+\code{
+defn fibonacci (n:Int) -> Int :
+   var a:Int = 0
+   var b:Int = 1
+   var i = 0
+   label<False> break :
+      while true :
+         if i == n : break(false)
+         val c = a + b
+         a = b
+         b = c
+         i = i + 1
+   b
+}
+ 
+The code above starts an infinite loop, but breaks out of it when \code{i} is equal to \code{n}.
+
+\subsection{General Form}
+The general form of a labeled scope is
+\code{
+label<Type> exit :
+   body
+}
+\code{Type} is the type of the value returned by the labeled scope and \code{exit} is the name of the exit function. 
+
+You can name the exit function whatever you like. When used to return early from a function, \code{return} is a popular name for the exit function. When used to break early from a loop, \code{break} is a popular name.
+
+The label construct simply executes the given body. If the exit function is never called then the result of the body expression is the result of the label construct. If the exit function is called, then we \italic{immediately} stop evaluation of the body, and the argument to the exit function is the result of the label construct.
+
+\subsection{Well-Typed Labeled Scopes}
+
+The type annotation on the label construct enforces two properties.
+\list{
+\item The argument to the exit function must be of the specified type. 
+\item The result of the body itself must be of the specified type, as that is the value that is returned by the label construct if the exit function is never called.
+}
+
+The first restriction is fairly obvious. If you pass an argument of the wrong type to the exit function
+\code{
+defn fibonacci (n:Int) -> Int :
+   label<Int> myreturn :
+      if n < 0 : myreturn("Timon")
+      var a:Int = 0
+      var b:Int = 1
+      var i = 0
+      while i < n :
+         val c = a + b
+         a = b
+         b = c
+         i = i + 1
+      b
+}
+then Stanza will issue an error.
+\code{
+Cannot call function myreturn of type Int -> Void with arguments of type (String).
+}
+
+The second restriction sometimes arises in more subtle situations. The following function computes the first integer whose square is greater than 1000.
+\code{
+defn first-big-square () :
+   label<Int> return :
+      for i in 0 to false do :
+         if i * i > 1000 :
+            return(i)   
+}
+But compiling it gives us this error.
+\code{
+Cannot return an expression of type False for anonymous function
+with declared return type Int.
+}
+This message says that the body of the labeled scope returns \code{False} but it's declared to return \code{Int}. This arises because the for construct with the \code{do} operating function returns \code{false}, but the type annotation on the label construct was \code{Int}.
+
+Since we \italic{know} that the \code{return} exit function is guaranteed to be called, we can explicitly handle this case by causing the program to fail if the loop ever finished without calling \code{return}. 
+\code{
+defn first-big-square () :
+   label<Int> return :
+      for i in 0 to false do :
+         if i * i > 1000 :
+            return(i)
+      fatal("Unreachable Statement")      
+}
+
+\section{Scopes and the Let Expression}
+We have now seen a number of expressions that introduce a new \italic{scope}: functions, while loops, for loops, if expressions, and labeled scopes. Values and variables defined within a scope are only visible within that scope. For example, in the following code
+\code{
+val x = 3
+if x < 5 :
+   val y = 10
+   println(y)
+else :
+   val z = 12
+   println(z)
+}
+\code{y} is in the scope of the consequent branch of the if expression, and it is \italic{only} visible from within the consequent branch of the if expression. And \code{z} is only visible from within the alternate branch of the if expression. Referencing \code{y} and \code{z} from outside the scope in which they were declared
+\code{
+val x = 3
+if x < 5 :
+   val y = 10
+   println(y)
+else :
+   val z = 12
+   println(z)
+   
+println(y)
+println(z)
+}
+is illegal and would not pass the Stanza compiler. 
+
+Scopes may themselves contain other nested scopes. In the above example, \code{x}'s scope, contains both the scope of the consequent branch, and the scope of the alternate branch of the if statement. At any point in the program, you may only refer to a value or variable defined in a containing scope. The following \italic{is} legal.
+\code{
+val x = 3
+if x < 5 :
+   val y = 10
+   println(y)
+   println(x)
+else :
+   val z = 12
+   println(z)
+   println(x)
+}
+
+If there are multiple values with the same name that are visible, you automatically refer to the one in the nearest scope. Thus the following code prints \code{11}, not \code{3}. 
+\code{
+val x = 3
+if x < 10 :
+   val x = 11
+   println(x)
+}
+This feature is called \italic{shadowing}.
+
+Sometimes it is useful to artificially introduce a new scope, simply because you will define a number of values that you only want visible within the scope. You can do this using the let expression.
+\code{
+val x = 3
+let :
+   val y = 4
+   println(y)
+}
+In the above code, the let expression introduces a new scope where \code{y} is defined. After the let expression, \code{y} will no longer be visible. 
+
+\section{Arrays}
+
+Arrays are one of Stanza's most fundamental datastructures. The following
+\code{
+val a = Array<Int>(10)
+}
+creates an array of length 10 and gives it the name \code{a}. You can imagine an array to look like a row of boxes, into which you can put and retrieve objects. So \code{a} is a row of ten boxes, each capable of holding an integer.
+
+\subsection{Putting Things In}
+You can put things into the boxes like this.
+\code{
+a[0] = 42
+a[1] = 13
+}
+The first box is numbered box 0. The next box is numbered box 1. The last box in \code{a} is box 9 because \code{a} has only ten boxes in total. 
+
+\subsection{Getting Things Out}
+You can retrieve the contents of boxes like this.
+\code{
+println(a[0])
+println(a[1])
+}
+prints out
+\code{
+42
+13
+}
+
+\subsection{Asking For Its Length}
+You can call the \code{length} function to ask for the length of an array.
+\code{
+val l = length(a)
+println("a has %_ boxes." % [l])
+}
+prints out
+\code{
+a has 10 boxes.
+}
+
+The type of \code{a} is \code{Array<Int>} indicating that it is an array for holding integers. An array for holding strings would have type \code{Array<String>}. And an array that can hold anything would have type \code{Array<?>}. 
+
+\subsection{Arrays and Loops}
+Arrays are most powerful when combined with loops. This function
+\code{
+defn array-sum (xs:Array<Int>) :
+   var sum = 0
+   for i in 0 to length(xs) do :
+      sum = sum + xs[i]
+   sum   
+}
+computes the sum of every integer in an array. Let's use it to compute the sum of 10, 11, 7, and 8. 
+\code{
+val a = Array<Int>(4)
+a[0] = 10
+a[1] = 11
+a[2] = 7
+a[3] = 8
+println(array-sum(a))
+}
+prints out
+\code{
+36
+}
+
+\section{Tuples}
+Tuples represent an immutable collection of items. The following creates a two-element type.
+\code{
+val t:[Int, String] = [42, "Hello"]
+}
+It contains an \code{Int} and a \code{String}. To extract the elements of a tuple, type
+\code{
+val [x, y] = t
+}
+The above code checks that \code{t} is a two-element tuple, and then puts the first element of \code{t} in \code{x} and the second element of \code{t} in \code{y}.
+
+Notice that the type of the expression \code{[42, "Hello"]} is \code{[Int, String]}. That type says its a two-element tuple containing an \code{Int} and a \code{String}. 
+
+\subsection{Returning Multiple Values}
+Tuples are often used to return multiple values from a function. The following function takes an argument, \code{n}, and a distance, \code{d}, and returns both \code{n - d} and \code{n + d}.
+\code{
+defn bracket (n:Int, d:Int) :
+   [n - d, n + d]
+}
+We can call and receive both return values from \code{bracket} like this.
+\code{
+val [lo, hi] = bracket(5, 3)
+println("Bracket around %_ and %_" % [lo, hi])
+}
+
+\section{Basic Types}
+At this point, we have seen a couple of different types now. Here is a listing of the other basic types in Stanza.
+\code{
+Byte :     e.g. 1Y, 42Y, 255Y
+Int :      e.g. 10, 42
+Long :     e.g. 10L, 420020020L
+Float :    e.g. 1.0f, 42.0f
+Double :   e.g. 1.0, 42.0
+String :   e.g. "Timon", "Pumbaa"
+Char :     e.g. 'a', 'Z'
+True :     e.g. true
+False :    e.g. false
+}
+
+As we've said already, the \code{?} type is special and any value can be passed to a place expecting a \code{?}.
+
+All of the types listed in the previous table are examples of \italic{ground} types. It means that you refer to them simply by their name and they don't take any parameters. With the introduction of arrays, you have now also been introduced to your first \italic{parametric} type. 
+\code{
+Array<Int> :          Arrays of Ints
+Array<String> :       Arrays of Strings
+Array<Array<Int>> :   Arrays of Arrays of Ints
+Array<?> :            Arrays of anything
+}
+
+Unlike ground types, parametric types take additional \italic{type parameters}. An array needs to know what type of objects it holds, so it has one type parameter for specifying that. 
+
+Note that for parametric types, if you leave off its parameters, then it is equivalent to specifying \code{?} for all of its type parameters. Thus
+\code{
+Array
+}
+is equivalent to
+\code{
+Array<?>
+}
+
+And
+\code{
+Array<Array>
+}
+is equivalent to
+\code{
+Array<Array<?>>
+}
+
+Tuple types have their own syntax, and consists of surrounding the types of all of its elements with the \code{[]} brackets. Here is a tuple containing an integer and a string.
+\code{
+[Int, String]
+}
+Here is a tuple containing an integer, a string, and a tuple of a single integer.
+\code{
+[Int, String, [Int]]
+}
+
+\section{Structs}
+For convenience, Stanza provides a simple way to create compound types out of existing types using structs. Here is how to define a new \code{Dog} type with two fields, a name, and a breed.
+\code{
+defstruct Dog :
+   name: String
+   breed: String
+}
+
+Once \code{Dog} is defined, you can create new \code{Dog} objects by calling the \code{Dog} function.
+\code{
+val d1 = Dog("Chance", "Pitbull")
+val d2 = Dog("Shadow", "Golden Retriever")
+}
+
+\subsection{Getter Functions}
+To retrieve the values of the fields it was constructed from, you may call the \code{name} and \code{breed} getter functions.
+\code{
+println("%_ is a %_." % [name(d1), breed(d1)])
+}
+prints out
+\code{
+Chance is a Pitbull.
+}
+
+\subsection{Struct Type}
+Additionally, once a struct is defined, you may now also use it as the name of a type. Here is a function that prints out the contents of an array of \code{Dog} objects.
+\code{
+defn kennel-contents (dogs:Array<Dog>) :
+   println("There are %_ dogs in the kennel." % [length(dogs)])
+   for i in 0 to length(dogs) do :
+      println("%_ the %_" % [name(dogs[i]), breed(dogs[i])])
+}
+Let's try calling \code{kennel-contents}.
+\code{
+val kennel = Array<Dog>(3)
+kennel[0] = Dog("Chance", "Pitbull")
+kennel[1] = Dog("Shadow", "Golden Retriever")
+kennel[2] = Dog("Bud", "Basketball Player")
+kennel-contents(kennel)
+}
+prints out
+\code{
+There are 3 dogs in the kennel.
+Chance the Pitbull
+Shadow the Golden Retriever
+Bud the Basketball Player
+}
+
+Structs are just a convenient form for quickly declaring a new type, constructor function, and getter functions. Later we'll learn the general method for creating new types.
+
+\section{Exercises}
+\list{
+\item Write a function called \code{nearest-pow-2} that takes a single positive integer \code{n} and returns the closest number to \code{n} that can be represented as a power of 2.
+
+\item Write a program that prints out different messages depending on a value called \code{temperature}. If \code{temperature} is below 20, then print \code{Too Cold!}. If it is between 20 and 40 then print \code{Getting There!}, and print \code{Pumbaa Approves!} if it is over 40. 
+
+\item Use a for loop and a variable to compute the sum of all the integers between 100 (inclusive) to 500 (also inclusive). 
+
+\item Use a labeled scope and for loops to compute the minimum number, n, for which the sum of the integers between 0 and n (inclusive) is above 10000. 
+
+\item Use a while loop and variables to calculate the great common divisor of two variables, \code{x} and \code{y}. The Euclidean algorithm is the simplest one to use. Look online for a description about how the algorithm works.
+
+\item Write a function to print out the following pattern of stars. Allow the width and height of the rectangle to be indicated by the arguments \code{width} and \code{height} respectively.
+\code{
+*************
+*           *
+*           *
+*           *
+*           *
+*           *
+*           *
+*************
+}
+
+\item Write a program to print out the following pattern of stars. Allow the height of the triangle to be indicated by an argument named \code{height}.
+\code{
+        *                              
+       ***                             
+      *****                            
+     *******                           
+    *********                          
+   ***********                         
+  *************                        
+ ***************                       
+*****************                     
+}
+
+\item For the following code, predict what will be printed out and then test your prediction.
+\code{
+val x = 42
+println(x)
+let :
+   println(x)
+   val x = "Hi"
+   println(x)
+   let :
+      val x = 42
+      println(x)
+   let :
+      val x = "There"
+      println(x)
+println(x)
+let :
+   val x = x + 1
+   println(x)
+println(x)
+}
+
+\item For the following code, write it out completely on a single line, grouping expressions with parentheses where necessary. Run both versions and ensure that they behave identically.
+\code{
+val x = (42 10)
+for i in 0 to 10 do :
+   println(x)
+      println("B")
+println("C")
+for i in 0 to 10 do : println("D")
+   println("E")
+}
+}

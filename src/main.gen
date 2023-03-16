@@ -1,0 +1,15 @@
+\read(src/template.gen)
+
+\pages{
+   \page(main)[Home]{index.gen}
+   \page(main)[Philosophy]{philosophy.gen}
+   \page(main)[Downloads]{downloads.gen}
+   \page(main)[Documentation]{documentation.gen}
+   \page(main)[People]{people.gen}
+   \page(main)[Community]{community.gen}
+   \page(main)[News]{news.gen}
+   \page(api)[Reference]{reference.gen}
+   
+   \innerpage(main){purpose_of_programming_languages.gen}
+   \innerpage(main){optional_typing.gen}
+}

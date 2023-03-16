@@ -1,0 +1,54 @@
+\header{What is L.B. Stanza?}
+
+L.B. Stanza (or Stanza for short) is a new \italic{optionally-typed} general purpose programming language from the University of California, Berkeley. Stanza was designed to help programmers tackle the complexity of architecting large programs and significantly increase the productivity of application programmers across the \italic{entire} software development life cycle.
+
+\header{A Taste of Stanza}
+A function that lazily computes the depth-first traversal of an s-expression, and prints the first four items.
+\code{
+defn lazy-flatten (x) :
+   generate :
+      defn loop (x) :
+         match(x) :
+            (x:List) : do(loop, x)
+            (x) : yield(x)
+      loop(x)
+
+val first-4 = take-n(4, lazy-flatten(`(a b (c (d e f (g) (h)) (i j)))))
+println(first-4)
+}
+
+\header{Benefits}
+
+Stanza was designed to offer the following benefits to application developers.
+
+\side_by_side_table{
+   \left{
+      \item (EFFICIENT) Native Performance: Stanza compiles directly to native code and runs faster than any scripting language because it does not suffer any interpretive overhead.
+
+      \item (FAMILIAR) Friendly Syntax: Stanza code is block structured and uses familiar constructs. Users familiar with Python, Ruby, Java, or C, should feel at home with Stanza's syntax.
+
+      \item (SEAMLESS) Prototype to Production: Stanza features a novel \italic{optional} type system, that combines the prototyping power of dynamically-typed scripting languages with the stability and safety of statically-typed production languages. 
+
+When prototyping, don't specify any types, and Stanza will behave like a dynamically-typed scripting language. But when confident in your design, gradually add in types to make your code bulletproof. The more types you add, the more errors Stanza will catch up-front for you.
+
+      \item (CONTROL) Time and Concurrency: Use first-class \italic{targetable} coroutines to control time and easily manage programs involving highly concurrent state, like video games and web servers. Unlike other languages, Stanza's coroutines are a true \italic{general} control flow operator and are used for everything from implementing exceptions, to generators, to data-flow solvers.
+   }
+   \right{
+      \item (MAXIMIZE) Productivity: Stanza fully supports and encourages functional programming. With higher-order functions like \code{map}, \code{filter}, and \code{reduce}, programmers can get lots done with very little code; all in an easy-to-use and accessible language.
+
+      \item (CLEAN) Flexible Architecture: Object Oriented Programming is great. But fragile and deep, class inheritance trees are not. Stanza does away with classes completely and offers an incredibly flexible \italic{class-less} object system built upon multimethods and function overloading. 
+
+Additionally, Stanza's object system fits beautifully within a functional programming paradigm, and offers you the full power of functional programming with the structure of object oriented programming.
+
+      \item (EASILY CONSTRUCT) Domain Specific Languages: Stanza offers full programmatic s-expression macros in the style of Lisp but without the headache of programs looking like a jumble of parentheses. The core Stanza language is extremely minimal, and the majority of constructs are defined using macros. 
+
+A powerful macro system allows library writers to create domain specific languages (DSLs) that hide unnecessary complexity from users; resulting in less code and less bugs.
+   }
+}
+
+\header{What does L.B. stand for?}
+L.B. Stanza stands for "Li Bai's Stanza". Li Bai was an acclaimed Chinese poet who lived from year 701 to 762. He was known particularly for his mastery of "regulated verse", the most rigorous verse form of his time. His poems were noted for the vividness of their imagery, the grace and elegance of their structure, and the exacting precision of their words and meter. 
+
+Because of its rigidity and demanding technical nature, programming is often misunderstood to be a tiresome uncreative activity. But in fact, programming does not feel that different from writing poetry. It is a search for the simplest phrase that fits within an unforgiving meter, and the word "beautiful" is as appropriate for a perfectly constructed line of code as it is for a meticulously crafted stanza. This language is named after one of history's greatest masters of this art form. 
+
+  -Patrick

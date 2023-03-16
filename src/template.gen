@@ -1,0 +1,315 @@
+\pages{
+  \page(main,site)[Home]{index.gen}
+  \page(main,site)[Philosophy]{philosophy.gen}
+  \page(main,site)[Downloads]{downloads.gen}
+  \page(main,site)[Documentation]{documentation.gen}
+  \page(main,site)[People]{people.gen}
+  \page(main,site)[Community]{community.gen}
+  \page(main,site)[News]{news.gen}
+  \page(api,site)[Reference]{reference.gen}
+
+  \page(main,site){purpose_of_programming_languages.gen}
+  \page(main,site){optional_typing.gen}
+  \page(api,book){tetris.gen}
+  \page(api,book){qtgen.gen}
+}
+
+\book{
+  \index(api,site){stanzabyexample.gen}
+  \chapter(api,book){chapter1.gen}
+  \chapter(api,book){chapter2.gen}
+  \chapter(api,book){chapter3.gen}
+  \chapter(api,book){chapter4.gen}
+  \chapter(api,book){chapter5.gen}
+  \chapter(api,book){chapter6.gen}
+  \chapter(api,book){chapter7.gen}
+  \chapter(api,book){chapter8.gen}
+  \chapter(api,book){chapter9.gen}
+  \chapter(api,book){macrosystem.gen}
+  \chapter(api,book){chapter10.gen}
+  \chapter(api,book){chapter11.gen}
+  \chapter(api,book){appendix.gen}
+}
+
+\style[main](\content){\let{
+  Shorthands
+  \def[\trdT[\attrib]{\body}](\attrib,\body){\trT{\tdT[\attrib]{\body}}}
+  \def[\trdT{\body}](\body){\trT{\tdT{\body}}}
+}\in{
+<!DOCTYPE html>
+\htmlT{
+  \headT{
+    \titleT{L.B.Stanza}
+    \linkT[type="text/css" rel="stylesheet" href="resources/mainstyle.css"]
+
+    \#{
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-77155883-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    \#}
+  }
+  \bodyT{
+    \tableT[class="wrap"]{
+      \trdT[colspan="3" class="banner"]{
+        \navbar{\aT[href="\url"\active{ class="active-banner"}]{\name}}
+      }
+      \trT{
+        \tdT[class="nav"]{
+          \h1T{NAVIGATION}
+          \sections{\tag(\weight){\aT[href="#\anchor"]{\name}}}
+        }
+        \tdT[class="main"]{
+          \content
+        }
+        \tdT[class="rest"]{
+          \imgT[url="resources/spacer.gif"]{}
+        }
+      }
+      \trdT[colspan="3" class="footer"]{
+        Site design by Luca Li. Copyright 2015.
+      }
+    }
+  }
+}
+}}
+
+\style[api](\content){\let{
+  Shorthands
+  \def[\trdT[\attrib]{\body}](\attrib,\body){\trT{\tdT[\attrib]{\body}}}
+  \def[\trdT{\body}](\body){\trT{\tdT{\body}}}
+}\in{
+<!DOCTYPE html>
+\htmlT{
+  \headT{
+    \titleT{L.B.Stanza}
+    \linkT[type="text/css" rel="stylesheet" href="resources/mainstyle.css"]
+    \linkT[type="text/css" rel="stylesheet" href="resources/documentation.css"]
+  }
+  \bodyT{
+    \tableT[class="wrap"]{
+      \trdT[colspan="3" class="banner"]{
+        \navbar{\aT[href="\url"\active{ class="active-banner"}]{\name}}
+      }
+      \trT{
+        \tdT[class="nav"]{
+          \h1T{NAVIGATION}
+          \sections{\tag(\weight){\aT[href="#\anchor"]{\name}}}
+        }
+        \tdT[class="main"]{
+          \content
+        }
+        \tdT[class="rest"]{
+          \imgT[url="resources/spacer.gif"]{}
+        }
+      }
+      \trdT[colspan="3" class="footer"]{
+        Site design by Luca Li. Copyright 2015.
+      }
+    }
+  }
+}
+}}
+
+\style[site](\page_body){\sub{
+  Def Shorthand
+  \def[\def[\pat](\binders){\defs}\in{\body}](\pat,\binders,\defs,\body){\def[\pat](\binders){\let{\defs}\in{\body}}}  
+  \def[\comment{\text}](\text){}
+  }\in{\let{
+
+  Shorthands
+  \def[\trdT[\attrib]{\body}](\attrib,\body){\trT{\tdT[\attrib]{\body}}}
+  \def[\trdT{\body}](\body){\trT{\tdT{\body}}}
+
+  Definitions for Paragraphs
+  \def[\paragraph{\x}](\x){\clean{\pT{\x}}}
+  
+  Definitions for Headers
+  \def[\header{\text}](\text){\genanchor{\sectionbar[\h2T](\anchor){\text}\h1T[id="\anchor"]{\text}}}
+  \def[\subheader{\text}](\text){\genanchor{\sectionbar[\h3T](\anchor){\text}\h2T[id="\anchor"]{\text}}}
+  \def[\subsubheader{\text}](\text){\genanchor{\sectionbar[\h4T](\anchor){\text}\h3T[id="\anchor"]{\text}}}
+
+  \def[\quietheader{\text}](\text){\h1T{\text}}
+  \def[\quietsubheader{\text}](\text){\h2T{\text}}
+  \def[\anchor{\text}](\text){\genanchor{\sectionbar[\h3T](\anchor){\text}\aT[id="\anchor"]{}}}
+
+  \def[\subheader_link[\url]{\text}](\url,\text){\genanchor{\sectionbar[\h3T](\anchor){\text}\h2T[id="\anchor"]{\aT[href="\url"]{\text}}}}
+
+  Definitions for Code
+  \def[\code{\%n\text\%n}](\text){\preT{\codeT{\clean{\text}}}}
+  \def[\code{\text}](\text){\codeT{\clean{\text}}}
+
+  Definitions for Fonts
+  \def[\italic{\text}](\text){\spanT[style="font-style:italic;"]{\text}}
+
+  Definitions for Small
+  \def[\small{\text}](\text){\spanT[style="font-size:12px;"]{\text}}
+  
+  }\in{\let{
+  
+  Definition for Side by Side Table
+  \def[\side_by_side_table{\text}](\text){\let{
+    \def[\item{(\subtext) \title: \body}](\subtext, \title, \body){
+      \divT[class="red"]{
+        \divT[class="subtext"]{\subtext}
+        \divT[class="text"]{\title}
+      }
+      \paragraphs{\body}      
+    }
+  }\in{\let{
+    \def[\left{\z}](\z){\tdT[class="left"]{\scan_items{\z}}}
+    \def[\right{\z}](\z){\tdT{\scan_items{\z}}}
+  }\in{\tableT[class="features"]{\text}}}}
+
+  Definitions for Lists
+  \def[\list{\x}](\x){\let{
+    \def[\item{\y}](\y){\liT{\y}}
+  }\in{\olT{\scan_items{\x}}}}
+
+  Definitions for Table of Contents
+  \def[\table_of_contents](){
+    \chapters{
+      \subheader_link[\url]{\title}
+      \paragraph{\description}
+      \olT{
+        \sections{
+          \liT{\aT[href="\url"]{\title}}
+        }
+      }
+    }
+  }
+
+}\in{\paragraphs[\header,\subheader,\subsubheader,\quietsubheader]{\page_body}}}}}
+
+\style[book](\page_body){\sub{
+  Def Shorthand
+  \def[\def[\pat](\binders){\defs}\in{\body}](\pat,\binders,\defs,\body){\def[\pat](\binders){\let{\defs}\in{\body}}}  
+  \def[\comment{\text}](\text){}
+  }\in{\let{
+
+  Shorthands
+  \def[\trdT[\attrib]{\body}](\attrib,\body){\trT{\tdT[\attrib]{\body}}}
+  \def[\trdT{\body}](\body){\trT{\tdT{\body}}}
+
+  Definitions for Paragraphs
+  \def[\paragraph{\x}](\x){\clean{\pT{\x}}}
+
+  Definitions for Sections
+  \def[\chapter{\text}](\text){\genanchor{\sectionbar[\h2T](\anchor){\text}\h1T[id="\anchor"]{\text}}}
+  \def[\section[\anchor]{\text}](\anchor,\text){\sectionbar[\h3T](\anchor){\text}\h2T[id="\anchor"]{\text}}
+  \def[\section{\text}](\text){\genanchor{\sectionbar[\h3T](\anchor){\text}\h2T[id="\anchor"]{\text}}}
+  \def[\subsection{\text}](\text){\genanchor{\sectionbar[\h4T](\anchor){\text}\h3T[id="\anchor"]{\text}}}
+
+  Definitions for Code
+  \def[\code{\%n\text\%n}](\text){\preT{\codeT{\clean{\text}}}}
+  \def[\code{\text}](\text){\codeT{\clean{\text}}}
+
+  Definitions for Fonts
+  \def[\italic{\text}](\text){\spanT[style="font-style:italic;"]{\text}}
+
+  Definitions for Small
+  \def[\small{\text}](\text){\spanT[style="font-size:12px;"]{\text}}
+  
+  }\in{\let{
+
+  Definitions for Lists
+  \def[\list{\x}](\x){\let{
+    \def[\item{\y}](\y){\liT{\y}}
+  }\in{\olT{\scan_items{\x}}}}
+
+}\in{\paragraphs[\chapter,\section,\subsection]{\page_body}}}}}
+
+
+
+
+
+\bookpdf(\foreword, \content){
+  \style(site => foreword)
+  \style(book => latex)
+}{
+\raw{\#{
+\title{Stanza by Example}
+\author{Patrick S. Li}
+\documentclass[10pt,oneside]{book}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{parskip}
+%\setlength{\parskip}{0.2em}
+\usepackage[letterpaper, margin=1in]{geometry}
+\definecolor{lightgray}{rgb}{0.95, 0.95, 0.95}
+\usepackage{listings}
+\lstdefinestyle{mycode}{
+  basicstyle=\footnotesize\ttfamily,
+  backgroundcolor=\color{lightgray}
+}
+\lstset{style=mycode}
+\begin{document}
+\raggedright
+\maketitle\#}}
+\foreword
+\raw{\\tableofcontents}
+\content
+\raw{\#{\end{document}\#}}
+}
+
+
+\style[foreword](\page_body){\sub{
+  Def Shorthand
+  \def[\def[\pat](\binders){\defs}\in{\body}](\pat,\binders,\defs,\body){\def[\pat](\binders){\let{\defs}\in{\body}}}  
+  \def[\comment{\text}](\text){}
+  }\in{\let{
+
+  Definitions for Paragraphs
+  \def[\paragraph{\x}](\x){\%n\%n\x}
+  
+  Definitions for Headers
+  \def[\header{\text}](\text){\raw{\\header{}\text\raw{\%}}}
+  \def[\quietsubheader{\text}](\text){\raw{\\subheader{}\text\raw{\%}}}  
+
+  Definitions for Fonts
+  \def[\italic{\text}](\text){\raw{\%{\\em }\text\raw{\%}}}
+  
+}\in{\paragraphs[\header,\subheader,\subsubheader,\quietsubheader]{\page_body}}}}
+
+
+
+\style[latex](\page_body){\sub{
+  Def Shorthand
+  \def[\def[\pat](\binders){\defs}\in{\body}](\pat,\binders,\defs,\body){\def[\pat](\binders){\let{\defs}\in{\body}}}  
+  \def[\comment{\text}](\text){}
+  }\in{\let{
+
+  Definitions for Paragraphs
+  \def[\paragraph{\x}](\x){\%n\%n\x}
+  
+  Definitions for Headers
+  \def[\chapter{\text}](\text){\raw{\\chapter{}\text\raw{\%}}}
+  \def[\section[\anc]{\text}](\anc,\text){\raw{\\section{}\text\raw{\%}}}
+  \def[\subsection{\text}](\text){\raw{\\subsection*{}\text\raw{\%}}}  
+
+  Definitions for Links
+  \def[\aT[href=\url]{\text}](\url,\text){\raw{\\href\%{}\url\raw{\%}\%{}\text\raw{\%}}}
+
+  Definitions for Code
+  \def[\code{\%n\text\%n}](\text){\raw{\#{\begin{lstlisting}
+\#text
+\end{lstlisting}\#}}}
+
+  \def[\code{\text}](\text){\raw{\\texttt{\\frenchspacing }\text\raw{\%}}}
+
+  Definitions for Fonts
+  \def[\italic{\text}](\text){\raw{\%{\\em }\text\raw{\%}}}
+  
+  }\in{\let{
+
+  Definitions for Lists
+  \def[\list{\x}](\x){\let{
+    \def[\item{\y}](\y){\raw{\\item }\y}
+  }\in{\raw{\#{\begin{enumerate}\#}}
+\scan_items{\x}\raw{\#{\end{enumerate}\#}}}}
+
+}\in{\page_body}}}}

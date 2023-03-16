@@ -1,0 +1,538 @@
+\header{The Design of Stanza's Optional Type System}
+Patrick S. Li - August 16, 2016
+
+Stanza is one of a new paradigm of languages to recently be released that are neither dynamically- nor statically-typed, and instead is designed around an \italic{optional} type system. Stanza's type system subsumes the semantics of both fully dynamically-typed and fully statically-typed languages and offers the flexibility and productivity of the former, with the error detection capabilities of the latter. The system is designed to be non-invasive, to allow users to seamlessly mix untyped with typed code, easily transition between the two paradigms, and prioritizes simplicity and ease-of-use. Our teaching experience shows students -- even those with little experience in typed languages -- are comfortable with the language after less than ten hours of instruction. We have, thus far, written roughly 50000 lines of code in Stanza and found the optionally-typed paradigm to be more productive than both fully dynamically-typed and fully statically-typed languages. This article details the advantages of optional typing in general, the motivations behind the design of Stanza's type system, the technical hurdles we encountered, and our experiences with using and teaching Stanza.
+
+\subheader{The Role of a Type System}
+
+Not all syntactically-correct programs do something meaningful. In fact, the majority of them simply crash. For instance, subtracting the number \code{42} from the string \code{"Hello World"} is a meaningless operation. If you attempted it in Python, it would print out this error:
+\code{
+TypeError: unsupported operand type(s) for -: 'str' and 'int'
+}
+
+Java, on the other hand won't even allow you to \italic{compile} the program. It prints out:
+
+\code{
+error: bad operand types for binary operator '-'
+  first type: String
+  second type: int
+}
+
+A programming language's \italic{type system} is what is responsible for detecting meaningless operations and notifying the user. Some languages, such as Python, detect errors at runtime when the operation is attempted, and other languages do it at compile-time, as is the case for Java.
+
+The majority of programming languages are predominantly divided into two categories: according to whether they are dynamically- or statically-typed. The above operation of subtracting \code{42} from \code{"Hello World"} is an example of a \italic{type error}. Dynamically-typed languages, such as Python, Ruby, Perl, PHP, and Javascript, detect these type errors when the operation is performed. If that part of the code is never executed, and the operation is never attempted, then no type error is reported. Statically-typed languages, such as C, C++, and Java, have an additional phase, called \italic{type checking}, that analyzes the code before it is executed. If the type checker detects an \italic{ill-typed} operation it will be reported to the user, regardless of whether or not that part of the code will be executed.
+
+Unlike current languages, Stanza is neither dynamically- nor statically-typed, and has instead what we call an \italic{optional} type system. This allows users to begin programming without specifying any types -- in which case Stanza acts as a dynamically-typed language -- and then gradually add types throughout development to take advantage of the error-checking capabilities of a statically-typed language.
+
+The type system is a fundamental part of the design of a programming language, and significantly influences the design of the rest of the language -- so much so, that designers often recommend designing the type system first before other parts of the language. In this article, we'll explain, in depth, the motivations underlying the design of Stanza's type system, the difficulties that we encountered, and our experiences with using and teaching Stanza so far.
+
+\subheader{Dynamic versus Static Typing}
+
+The great majority of current programming languages are divided into two categories: according to whether they are dynamically-typed or statically-typed. The Tiobe index lists Python, PHP, and Javascript as the most popular dynamically-typed language in use today, and Java, C, and C++ as the most popular statically-typed languages. Stanza is one of the few languages, along with Dart and Typescript, that does not fall under one of these two categories.
+
+Both paradigms have their own strengths and weaknesses. Dynamically-typed languages do not require any type annotations, which saves the user from some verbosity while writing and reading code. They are also less restrictive than statically-typed languages and allow users to perform operations that would conservatively be deemed illegal in a statically-typed language. Proponents of static-typing may argue that the use of these operations is indicative of bad programming style and should not be used in polished software. But nonetheless, they are often very convenient -- especially during the early stages of development before the requirements and structure of the program are fully understood. Because of this, dynamically-typed languages are sometimes called \italic{prototyping} languages due to the ease of turning an idea into a mostly-working program.
+
+The disadvantages of dynamically-typed languages appear when programs grow in size. The lack of an error detection pass means that type errors are not detected until the pertaining line of code is executed under the proper conditions -- the result of which is that, when working in a dynamically-typed language, a significant amount of implementation effort goes into avoiding minor typos and trivial mistakes. This includes both the time required to find and fix bugs caused by trivial mistakes, and also the time wasted on writing and updating tedious test code to maintain a reasonable level of correctness. An automated typechecker significantly relieves the programmer of both burdens.
+
+Statically-typed languages, on the other hand, come equipped with an automated typechecker that will preemptively detect ill-typed operations before the code is executed. However, most statically-typed languages require type annotations (OCaml and Haskell are notable exceptions) which contribute towards the verbosity of the program. And, depending on the design of the type system, they impose a restrictive structure on the program that periodically feels awkward and counter-intuitive. A common sentiment among programmers is the burden of having to "satisfy the typechecker", which alludes to the need to structure their programs in a form that is accepted by the type system. In a polished program, the added structure imposed by the typechecker may be beneficial for ensuring good software architecture, but it is often cumbersome during the prototyping stage of development.
+
+The programming community now recognizes that both dynamically- and statically-typed languages have their own pros and cons, and developers are advised to choose the most appropriate paradigm for their application. Applications that require frequent changes and where the final structure of the program is not well understood in advance benefit from the flexibility of a dynamically-typed language. Computer games are the best example of this. The ultimate objective of a computer game is simply to be \italic{fun}, and thus developers are continuously revising the program to test different designs. On the other hand, applications whose requirements are well understood and for whom correctness is important, benefit more from the structure and the error detection capabilities offered by a statically-typed language. A hospital patient management system is a good example.
+
+An additional issue that complicates the choice of programming paradigm is the observation that the most appropriate paradigm in the beginning of the project may not remain the most appropriate paradigm towards the end. Considering a computer game as an example, in the beginning, we would like to quickly implement and evaluate different designs. The goal during this stage is not to perfect any one design, but to build as many as possible that function well-enough to judge whether it is indeed what is wanted. Thus the flexibility of a dynamically-typed programming language is well suited for this stage. However, once the game design has stabilized, the developers must eventually ship a working and well-performing product. At this stage, the lack of an automated typechecker is a serious hindrance, and thus a statically-typed programming language is better suited for the later stages of the project.
+
+To deal with the above problem, for a large enough project, developers are sometimes advised to adopt a split-language management solution. The project is first prototyped using a dynamically-typed language, taking advantage of its flexibility to fully explore the design space and discover detailed project requirements. Once the design has stabilized, and requirements are well-understood, then the code base can be ported to a statically-typed language where development then continues with the aid of a stricter language and an automated typechecker.
+
+This split-language approach to software engineering is a common one, and one that we are used to, but it has many shortcomings that we find unsatisfying. The most obvious one is the requirement to know two languages, a prototyping and a production language, and the high cost of porting the software from one to the other.
+
+Another observation is that, even with the split-language approach, developers are still faced with a tradeoff between their choice of paradigms. Minor typos and silly mistakes arise even during the prototyping stage, so why can't the dynamically-typed language catch them? Currently, the user is faced with this false tradeoff between sacrificing early detection of errors in return for productivity and flexibility. We felt strongly that this tradeoff is \italic{not} fundamental, and that we could design a type system that provides productivity and flexibility on par with dynamically-typed languages while still being able to provide an automated typechecker.
+
+Finally, the last shortcoming comes from the observation that most software is comprised of multiple components, and each component may be at a different stage of development. Even if the main application is stable and is programmed in a statically-typed language, new features are always under development and need to be prototyped, and developers should be able to use a suitable language for the task. But the difficulty of managing an application with components written in different languages is overwhelming. Consequently, this is rarely done. So, for a given project, the act of porting from the prototyping to the production language is a one-time decision. Once you've made the switch to the production language, you're stuck there.
+
+So the driving motivation behind the design of Stanza's optional type system stems from our frustrations with the divide between the existing dynamic and static type systems, and we set out to design a system that would offer the best of both paradigms and be more productive than either.
+
+\subheader{Optional Typing}
+
+Our optional type system was designed from the perspective that a single language can consistently contain the semantics of both a dynamically-typed and a statically-typed language. A variable or argument in Stanza can \italic{optionally} be declared with a type. If it is, then the typechecker will detect ill-typed usages of the variable/argument and notify the user, as is done in a statically-typed language. But if it is not declared with a type, then we will delay the detection of any resulting type errors until runtime, as is done in dynamically-typed languages.
+
+So it is more fair to say that Stanza is \italic{both} dynamically- and statically-typed rather than neither dynamically- nor statically-typed. Dynamic-typing and static-typing are now just two different (and opposite) programming styles within Stanza. If no variable/argument has a declared type, then Stanza effectively behaves as a dynamically-typed programming language. And if every variable/argument has a declared type, then Stanza behaves as a statically-typed language.
+
+Stanza thus offers a continuous bridge between the dynamic and statically-typed paradigms. During the prototyping stage of development, developers may leave out type annotations to take advantage of the flexibility of dynamic-typing. Then gradually, as the software stabilizes and matures, more and more type annotations can be added to the code until the software reaches a level of reliability that the developers are comfortable with. With this method of development, users enjoy both the flexibility of a dynamically-typed language as well as the error detection capabilities of a statically-typed language without having to learn two different languages, or bear the cost of an expensive port from one language to another.
+
+Note that there is also no need for developers to restrict themselves to the two extreme styles: either declaring the types of all variables/arguments or no variables/arguments. Developers are free to declare the types of as many or as little of the variables/arguments as desired. The majority of Stanza code contains a mix of untyped and typed code, and in fact, almost no Stanza program is entirely untyped. Keep in mind that even if the user declares no types for any variable or argument, that Stanza's core library is still stable and entirely typed. The effect is that the user's own code will run and behave like Python, but incorrect usages of the core library functions will still be detected in advance by the typechecker. Thus even during the prototyping stage, many common mistakes are detected by the typechecker. Our experience shows that this property allows programs to be prototyped even faster in Stanza than in Python [2]. The flexibility of dynamic-typing is provided where it is desired (the developer's own code) but incorrect usages of trusted code (the core libraries) are still statically detected.
+
+Another use case for mixing typed and untyped code arises during the development of new components for mature applications. The main application may be mature and the majority of the program will be typed. But new components under development may be left untyped during prototyping. Once a component has stabilized, type annotations may be added to bring it to the same level of reliability as the main application. Unlike the split-language management solution, switching from an untyped to typed paradigm in Stanza is not an all-or-nothing decision.
+
+\subheader{Technical Obstacles}
+
+Given our goals for Stanza's type system, there were three key technical obstacles we knew of that had to be overcome.
+
+The first obstacle is that the type annotations have to be \italic{non-invasive}. One problem that plagued earlier attempts at hybrid dynamic-static type systems is the inability to smoothly transition from untyped to typed code. A user may begin programming by leaving out type annotations entirely, but then as soon as a single type annotation is introduced the program will continuously fail to typecheck until a significant portion of the code has been annotated. Knowing exactly which annotations are necessary and which aren't is not easily understood for someone that is unfamiliar with the typechecking algorithm. In practice, users coped with the system by treating it as essentially a two-mode language. Code is prototyped by leaving out type declarations entirely; then when finished, type declarations are added everywhere. We were adamant that Stanza not have to be used in this fashion. The type system should allow for a gradual and easy transition from untyped to typed code.
+
+The second obstacle results from our desire to allow users to smoothly convert untyped code to typed code without requiring any \italic{structural changes} to the code. As a driving example, consider that porting a program from Python to Java involves more than just changing the syntax and adding type annotations. This is because many common idioms in Python are disallowed by Java's type system. For example, in Python, variables and arrays are allowed to hold values of different types, whereas this is disallowed by Java. And in Python, the "duck typing" idiom allows users to require a function argument to support multiple interfaces, whereas Java requires the user to preemptively declare a class that implements the desired interfaces. As mentioned earlier, statically-typed languages impose more restrictions on the code structure than dynamically-typed languages. Thus to enable a smooth transition from untyped to typed code, Stanza's type system must be able to accomodate the common coding styles used with dynamically-typed languages.
+
+The last obstacle is support for user-defined parametric types. \code{Int}, \code{String}, and \code{Char}, are examples of \italic{ground} types because they take no \italic{type parameters}. In contrast, the \italic{parametric} types \code{Array<Int>} and \code{List<String>} each are parameterized with a single type parameter. An \code{Array<Int>} is an array for storing integers, and a \code{List<String>} is a list of strings. We knew early on that we needed to support parametric types, otherwise too much static type information will be lost due to values being stored and retrieved from containers. Some languages, such as Google's Go, come with a built-in set of parametric types but do not allow users to define their own. But we felt strongly that there are too many application-specific containers for us to anticipate or reasonably support, and that users must have the ability to declare their own parametric types. Given that we do not presume our target audience to have deep familiarity with type systems, we also wished for our system to remain simple to use. There is much literature on the design of parametric type systems, but they are not easily extended to accomodate untyped code, and they often require significant experience to use correctly.
+
+\subheader{The Subtyping Paradigm}
+
+Stanza's type system is built on top of the subtyping relation. The foundations are more similar to the statically-typed object oriented languages C++ and Java, and less so to the Hindley-Milner style functional languages, OCaml and Haskell. The subtyping paradigm involves first defining, for a program, a set of types and an acyclic (usually tree-structured) binary relation between them, called the \italic{subtype} relation. For example, our set of types can consist of:
+
+\code{
+Animal
+Mammal
+Fish
+Salmon
+Tuna
+Dog
+Cat
+Tabby
+}
+
+for representing a partial categorization of the animal kingdom, and the subtyping relation between them can be defined as follows:
+
+\code{
+Mammal <: Animal
+Fish <: Animal
+Salmon <: Fish
+Tuna <: Fish
+Dog <: Mammal
+Cat <: Mammal
+Tabby <: Cat
+}
+
+where we use the notation \code{X <: Y} to indicate that \code{X} is a \italic{subtype} of \code{Y}. In English, \code{X <: Y} can be roughly translated to "an \code{X} is a type of \code{Y}". So, 
+
+\code{
+Tuna <: Fish
+} 
+
+roughly means "a \code{Tuna} is a type of \code{Fish}". Most importantly, in the subtyping paradigm, a function declared to accept arguments of type \code{T} is allowed to be called with values of type \code{T} or any subtype of \code{T}. Similarly, a variable declared with type \code{T} is allowed to be assigned values of type \code{T} or any subtype of \code{T}. For example, a function called \code{swim} that is declared to accept a \code{Fish} argument,
+
+\code{
+defn swim (x:Fish) :
+   ...
+}
+
+is allowed to be called with \code{Salmon} and also \code{Tuna} objects.
+
+We chose to build the Stanza type system on the subtyping relation for two reasons. First, it is a familiar paradigm for users accustomed to the type systems of C++ and Java. And second, because even though Python/Ruby/Javascript has no static type system, we found that the typical coding style and architecture used in these languages is closer to the style of a Java programmer than an OCaml programmer. This second point is important for us as it means that typical untyped code is more easily converted to typed code using a subtyping-based type system than typed code using a Hindley-Milner style type system.
+
+\subheader{Extending Subtyping with the ? Type}
+
+Stanza's most important extension to the subtyping paradigm is the addition of the \code{?} type. In the language of type systems, the \code{?} type is defined to represent both the top and bottom of the type hierarchy. Representing the top of the hierarchy means that every type is defined to be a subtype of \code{?}. Thus a function that is declared to accept an argument of type \code{?} is allowed to be called with any value. In this aspect, it is similar to Java's \code{Object} type. Representing the bottom of the hierarchy means that the \code{?} type is defined to be a subtype of any other type. Thus a variable/argument declared with the \code{?} type is allowed to be passed to any other function. Together, these two properties give the same semantics as dynamically-typed languages. When the \code{?} type is not involved, then the legality of operations are checked using the same rules as for a fully statically-typed language.
+
+The \code{?} type hence allows Stanza to consistently model both the semantics of a fully dynamically-typed language as well as a fully statically-typed language. A fully dynamically-typed language is modeled by declaring every variable and argument with the \code{?} type, and a fully statically-typed language is modeled by declaring every variable and argument with a type containing no appearances of \code{?}.
+
+The following example demonstrates a function called \code{sum} that accepts an argument \code{n}, and computes the sum of the integers between \code{0} and \code{n} (exclusive). \code{n} is declared with the \code{?} type to indicate that Stanza will allow \code{sum} to be called with values of any type.
+
+\code{
+defn sum (n:?) :
+  var accum = 0
+  for i in 0 to n do :
+    accum = accum + i
+  accum  
+}
+
+Just as in Python, \code{sum(10)} returns \code{55}. But the call
+
+\code{
+sum("Hello World")
+}
+
+issues the runtime error
+
+\code{
+FATAL ERROR: Cannot cast value to type.
+   at core/core.stanza:2999.12
+   at example.stanza:9.12
+   at example.stanza:12.10
+   at example.stanza:14.0
+}
+
+when attempting the \code{0 to n} expression, indicating that the \code{to} operator cannot be called on the value \code{0} and \code{"Hello World"}.
+
+If we, however, explicitly declare \code{sum} to accept only values of type \code{Int}:
+
+\code{
+defn sum (n:Int) :
+  var accum = 0
+  for i in 0 to n do :
+    accum = accum + i
+  accum  
+}
+
+then Stanza behaves like a statically-typed language, and the call
+
+\code{
+sum("Hello World")
+}
+
+will be detected by the typechecker as an illegal operation. The specific error issued is
+
+\code{
+example.stanza:12.10: No appropriate function sum for arguments of
+type (String). Possibilities are:
+   sum: Seqable<Int> -> Int at core/core.stanza:4669.12
+   sum: Seqable<Long> -> Long at core/core.stanza:4670.12
+   sum: Seqable<Float> -> Float at core/core.stanza:4671.12
+   sum: Seqable<Double> -> Double at core/core.stanza:4672.12
+   sum: Int -> Int at example.stanza:5.5
+}
+
+indicating that there are multiple overloaded definitions of the \code{sum} function, but none is allowed to be called with an argument of type \code{String}.
+
+For convenience when prototyping, we actually allow users to completely elide the type annotation for arguments of named functions. The default type of an argument, if one is not given, is the \code{?} type. Thus the above \code{sum} function can be written equivalently as:
+
+\code{
+defn sum (n) :
+  var accum = 0
+  for i in 0 to n do :
+    accum = accum + i
+  accum  
+}
+
+Note that our extension for handling untyped code relies upon the introduction of a new type to the subtyping paradigm, but does not change any of the theory beyond that. This means that for standard types we may continue to use their traditional subtyping rules as found in the literature. Here is an example of how the \code{?} type interacts with a parametric \code{Array} type. Consider the following three possible type declarations for a function \code{sum-array} that computes the sum of an array of integers.
+
+\code{
+defn sum-array (xs:?) :
+  ...
+
+defn sum-array (xs:Array<?>) :
+  ...
+
+defn sum-array (xs:Array<Int>) :
+  ...
+}
+
+The first version of \code{sum-array} is completely dynamically-typed and accepts a value of any type. The second version of \code{sum-array} is partially dynamically-typed and can only accept arrays, but the array may be declared to contain values of any type. The last version is completely statically-typed and only accepts arrays of integers.
+
+Finally, modeling dynamic-typing using the \code{?} type gains us not only the advantage of being able to cleanly express both typed and untyped code, but also the ability to smoothly transition between the two paradigms. Our system has the property that any location (variable or argument) originally declared with the \code{?} type can be declared instead with its correct static type without causing a compilation error. And vice versa, any location originally declared with a static type can be declared instead with the \code{?} type without causing a compilation error [1]. This allows users to arbitrarily convert sections of untyped code to typed code easily, and at any point in time.
+
+As mentioned in the previous section, the fact that the core library is completely typed means that users get to take advantage of Stanza's typechecker even before writing \italic{any} type annotations. The following example function computes the total number of digits in an array of integers. Notice that there is not a single type annotation in the program.
+
+\code{
+defn total-number-of-digits (xs) :
+  var n = 0
+  for x in xs do :
+    val s = to-string(x)
+    n = n + length(s)
+  n  
+}
+
+Note that \code{to-string}, and \code{length}, and the \code{+} operator, are core library functions that are completely typed. Thus, if the user makes a mistake and forgets to call \code{length} on \code{s},
+
+\code{
+defn total-number-of-digits (xs) :
+  var n = 0
+  for x in xs do :
+    val s = to-string(x)
+    n = n + s
+  n
+}
+
+Stanza is still able to detect that the expression \code{n + s} is ill-typed, and issues the following error.
+
+\code{
+example.stanza:1.0: No appropriate function plus for arguments of type
+(Int, String). Possibilities are:
+   plus: (Byte, Byte) -> Byte at core/core.stanza:2865.21
+   plus: (Int, Int) -> Int at core/core.stanza:2996.12
+   plus: (Long, Long) -> Long at core/core.stanza:3065.21
+   plus: (Float, Float) -> Float at core/core.stanza:3119.21
+   plus: (Double, Double) -> Double at core/core.stanza:3169.21
+}
+
+You cannot add a string to an integer. This shows that even during prototyping, Stanza's error detection capabilities saves the user the burden of having to track down bugs due to trivial mistakes.
+
+\subheader{Extending Subtyping with the Union Type}
+
+As mentioned previously, one of our foreseen hurdles was to design a type system that allowed users to convert untyped to typed code without changing the structure of the code. This means that the final type system must be expressive enough to reflect the structure of typical code written in a dynamically-typed language.
+
+One common idiom that we noticed in dynamically-typed code is the use of a single variable or container for holding values of different types. The following code initializes \code{num-objects} with an integer if \code{n} is between 0 and 1, but with a string otherwise.
+
+\code{
+val num-objects =
+  if n >= 0 and n <= 1 :
+    n
+  else :
+    "more than 1"
+}
+
+Hindley-Milner style type systems simply do not permit such code, and porting dynamically-typed code to such a language will necessitate a structural change. Java's type system does allow the code but only if \code{num-objects} is declared with the top of the type hierarchy: Java's \code{Object} type. This is much too conservative and throws away useful type information.
+
+What is needed is a type for indicating that \code{num-objects} can hold values of either integers \italic{or} strings. Thus we gave Stanza direct support for \italic{untagged union types}. ("Untagged union types" are so named for unfortunate historical reasons, invented for differentiation from the tagged union types of OCaml and Haskell.) In Stanza, \code{num-objects} would be declared with type \code{Int|String} to indicate that it can hold values of either \code{Int} or \code{String}. We have found union types to be an absolute necessity for being able to add types to untyped code without necessitating a structural change.
+
+Similarly to the \code{?} type, the union type also interacts straightforwardly with parametric types. The following function accepts an array of either integers or strings.
+
+\code{
+defn f (xs:Array<Int|String>) :
+  ...
+}
+
+As an interesting aside, proper support for untagged union types also allows Stanza to omit the concept of a \italic{null} value. A common idiom that is used to indicate that a variable may be "uninitialized" is to assign it the value \code{false}. Thus a variable holding a possibly uninitialized integer could be declared with type
+
+\code{
+var x: Int|False = false
+}
+
+indicating that \code{x} might have the value \code{false}, and any usages of \code{x} as an \code{Int} must first be checked. This elegantly sidesteps what Hoare called his "billion-dollar mistake", and Stanza has no analogue to Java's notorious \code{NullPointerException}.
+
+\subheader{Extending Subtyping with the Intersection Type}
+
+Another dynamic-language idiom that is commonly seen is the presumption that a function argument will support the methods of multiple interfaces. As an example, let us first suppose that the following functions are available and defined in an existing library:
+
+\code{
+defn draw-cover (person:Artist) -> Drawing :
+  ...
+
+defn write-chapters (person:Writer) -> Text :
+  ...  
+}
+
+There are two relevant types to consider in this example, \code{Artist} and \code{Writer}. An \code{Artist} can draw book covers, and thus \code{draw-cover} accepts an \code{Artist} as its argument, and a \code{Writer} can write book chapters, and thus \code{write-chapters} accepts a \code{Writer}. The following function assumes that its argument is both an artist and a writer and lists the necessary steps for publishing a new book.
+
+\code{
+defn publish (person) :
+  val cover = draw-cover(person)
+  val text = write-chapters(person)
+  bind-book(cover, text)
+}
+
+To annotate the above code, a type is needed for indicating that person should be both an \code{Artist} \italic{and} a \code{Writer}, as both abilities are required. Stanza's intersection types are the dual of its union types, and allows us to enforce a value to be a subtype of two distinct types. The code above would have the following type annotation:
+
+\code{
+defn publish (person:Artist&Writer) :
+  val cover = draw-cover(person)
+  val text = write-chapters(person)
+  bind-book(cover, text)
+}
+
+\subheader{Parametric Types and Stanza's Captured Type System}
+
+The interaction between subtyping and parametric types are notorious for being complicated to grasp and unintuitive for programmers not versed in type theory. The fundamental issue lies in the concept of \italic{variance}. Consider the following function:
+
+\code{
+defn f (xs:Array<Cat>) :
+  ...
+}
+
+The critical question is: should the user be allowed to call \code{f} with an \code{Array<Tabby>} object? The most common answer heard from programmers unfamiliar with type theory is "yes". A \code{Tabby} is a type of \code{Cat}. So therefore, whatever operations \code{f} would have performed on an array of \code{Cat}s it can perform equally on an array of \code{Tabby} cats. Intuitively, programmers expect parametric types to be \italic{covariant}.
+
+To illustrate the problem with the above logic, let us rename \code{f} to \code{fill-with-random-cats},
+
+\code{
+defn fill-with-random-cats (xs:Array<Cat>) :
+  ...
+}
+
+where the name implies that the function will populate the given array with a number of random \code{Cat}s. In this case, it is obvious that we cannot call \code{fill-with-random-cats} with an \code{Array<Tabby>} object. The argument \code{xs} must be able to hold any kind of \code{Cat}, but an \code{Array<Tabby>} can only hold \code{Tabby} cats. This is an example of using a parametric type in a \italic{contravariant} context.
+
+Other statically-typed languages that feature both subtyping and parametric types, such as Java and Scala, employ complicated variance systems for users to specify whether a value is used in a covariant or contravariant setting. But for ease of use, Stanza makes the simplifying assumption that all parametric types are covariant as that is the most common usage case. The \code{fill-with-random-cats} function will issue a runtime error if it attempted to store a non-\code{Tabby} cat in an \code{Array<Tabby>} object. Thus, in Stanza, some compile-time type safety is sacrificed in return for simplicity. Our experiences thus far show that our users are both very comfortable with covariant parametric types and almost never encounter runtime errors related to contravariant usages, so we feel this was a worthwhile tradeoff for our goals.
+
+Because of Stanza's covariant assumption, much of the traditional theory on parametric types, which rely upon bounded quantifiers, no longer hold. Thus Stanza employs a new type system mechanic called \italic{captured types} for use in the definition of polymorphic functions, i.e. functions that take type parameters. The following example function, \code{store}, stores a given value at a given index in an array.
+
+\code{
+defn store<?T> (xs:Array<?T>, index:Int, value:T) :
+  ...
+}
+
+The \code{?T} following the store indicates that the function takes a single captured type parameter. The \code{Array<?T>} annotation on \code{xs} indicates that \code{T} is \italic{captured} from the element type of the array. As an example, in the following call to store:
+
+\code{
+defn f (ys:Array<Int>) :
+  store(ys, 10, 12)
+}
+
+the type parameter \code{T} captures the type \code{Int} from the element type of \code{ys} which has declared type \code{Array<Int>}. The call is then deemed legal as the expected argument types \code{(Array<Int>, Int, Int)} match the given argument types \code{(Array<Int>, Int, Int)}. In this next example:
+
+\code{
+defn f (ys:Array<String>) :
+  store(ys, 10, 12)
+}
+
+the type parameter \code{T} captures the type \code{String} from the element type of \code{ys} which now has declared type \code{Array<String>}. The call is then deemed illegal as the expected argument types \code{(Array<String>, Int, String)} no longer match against the given argument types \code{(Array<String>, Int, Int)}.
+
+Despite its simplicity, we have found that the captured type system is sufficient to type the vast majority of polymorphic functions used in practice and that it is quickly understood even by programmers with no type system experience.
+
+\subheader{Deep Casts and Types as Contracts}
+
+Besides the covariance assumption, there is one last key difference between Stanza's parametric type system and that of Java and Scala's. Consider the following function, for computing the sum of all the integers in an array.
+
+\code{
+defn sum-array (xs:Array<Int>) :
+  var accum = 0
+  for x in xs do :
+    accum = accum + x
+  accum
+}
+
+The argument \code{xs} is declared to be an array of integers. In Java, that annotation is interpreted to mean that, when \code{xs} was created, it was created as an array to hold integers (\code{Integer[]}). But that interpretation is unnecessarily restrictive. \code{xs} does not need to be created as an array for holding only integers, it just needs to contain only integers at the time that \code{sum-array} is called. Thus in Java, if \code{xs} was created with type \code{Object[]} then it cannot be passed to \code{sum-array} as an argument, even if the programmer were sure that it contained only \code{Integer} objects. The only work-around is to create a new array of type \code{Integer[]}, copy the contents of \code{xs} into it, and then call \code{sum-array} on the copied array.
+
+In contrast, Stanza interprets the annotation on \code{xs} to mean that \code{xs} \italic{behaves} as an array of integers. This means that whenever a value is retrieved from \code{xs}, the value will have type \code{Int} (or else the program is fatally wrong). Consider the following array created in Stanza:
+
+\code{
+val xs = Array<Int|String>(3)
+xs[0] = "zero"
+xs[1] = "one"
+xs[2] = "two"  
+xs[0] = 0
+xs[1] = 1
+xs[2] = 2
+}
+
+Even though \code{xs} is an array initially created to hold integers and strings, by the end of the code, it is guaranteed that only integers remain. Attempting to call \code{sum-array} directly with \code{xs}
+
+\code{
+sum-array(xs)
+}
+
+results in this error:
+
+\code{
+example.stanza:19.0: Cannot call function sum-array of type
+Array<Int> -> Int with arguments of type (Array<String|Int>).
+}
+
+which indicates that Stanza cannot prove that \code{xs} contains only integers. But the user is allowed to assert his knowledge about \code{xs} in the form of a \italic{deep cast}.
+
+\code{
+sum-array(xs as Array<Int>)
+}
+
+The cast forces \code{sum-array} to assume that \code{xs} behaves as an \code{Array<Int>} even though it was declared as an \code{Array<Int|String>}. From there on, if the program is incorrectly written, a runtime error will be issued in the event that \code{sum-array} somehow retrieves a value from \code{xs} that is not an \code{Int}.
+
+Support for deep casts are important as it is a common idiom in untyped code, and is a feature that is unsupported by Java and Scala. The interpretation of parametric types as contracts on its behaviour allows Stanza to retain its flexibility while detecting as many static errors as possible and also detecting runtime errors as early as possible.
+
+\subheader{Implications for Safety}
+
+Stanza is a strongly-typed language and its semantics are fully defined. All programs are guaranteed to terminate with either a result or a fatal error which indicates that an illegal operation was attempted and the line number and calling context under which it occurred.
+
+It is difficult to characterize precisely whether Stanza is more or less safe compared to other statically-typed languages. Because of the presence of the \code{?} type, and Stanza's covariance assumption, Stanza provides less compile-time guarantees about what type errors can occur at runtime. At the same time however, Stanza's support for union types and subtyping allows users to more precisely describe the static properties of their program, which means more information is available to the typechecker for error detection.
+
+For instance, the following Stanza code
+
+\code{
+val xs = Array<Int|String>(10)
+...
+f(xs[0] as Char)
+}
+
+is correctly rejected by the typechecker, as it detects that the expression \code{xs[0]} must be either an \code{Int} or a \code{String}, neither of which can be legally cast to a \code{Char}. In contrast, since Java does not support union types, the same code must be expressed as:
+
+\code{
+Object[] xs = new Object[10];
+...
+f((Character)xs[0])
+}
+
+Note that xs \italic{must} be declared with type \code{Object[]}, as \code{Object} is the only supertype of both \code{Integer} and \code{String}. Hence, because Java does not know that \code{xs} cannot contain \code{Character}s, the cast \code{(Character)xs[0]} is conservatively accepted by the Java typechecker.
+
+Compared to OCaml's Hindley-Milner type system, Stanza's support for subtyping also allows for more accurate type annotations in some contexts. Consider the following definition of the \code{CardValue} type and \code{royal-value} function.
+
+\code{
+deftype CardValue
+defstruct Jack <: CardValue
+defstruct Queen <: CardValue
+defstruct King <: CardValue
+defstruct Ace <: CardValue
+defstruct Num <: CardValue : (value:Int)
+
+defn royal-value (card:Jack|Queen|King) -> Int :
+  ...
+}
+
+There are a number of subtypes under \code{CardValue}, one for each of the distinguished cards, \code{Jack}, \code{Queen}, \code{King}, and \code{Ace}, and one for a simple numbered card. The function \code{royal-value} converts a given \code{Jack}, \code{Queen}, or \code{King} into its integer value. Because of the precise annotation on its argument, Stanza will correctly detect, for example, an illegal call to \code{royal-value} with an \code{Ace} card.
+
+\code{
+royal-value(Ace())
+}
+
+In contrast, consider the following tagged union declaration in OCaml, and \code{royal_value} function.
+
+\code{
+type card_value = Jack
+                | Queen
+                | King
+                | Ace
+                | Num of int;;
+
+let royal_value (card:card_value) : int =
+  ...
+}
+
+OCaml does not allow you to refer to specific tags in the union type, thus \code{royal_value} is conversatively annotated to accept any value of type \code{card_value}. The following incorrect call:
+
+\code{
+royal_value Ace
+}
+
+hence cannot be detected by the OCaml typechecker. 
+
+\subheader{Comparisons to Other Languages}
+
+To compare Stanza's type system to that of other languages, we can roughly group other type systems into five categories:
+
+\list{
+\item Static type systems based off of subtyping, as used in Java, Scala, C++.
+\item Hindley-Milner style type systems, as used in OCaml and Haskell.
+\item Dynamic type systems as used in Python, Ruby, Lua, Javascript, and Scheme.
+\item Dynamic type systems with rich tags as used in Julia.
+\item Other optional type systems as used in Dart and Typescript.
+}
+
+Stanza's goal is to offer the advantages of both dynamic and static typing in a single language with a shallow learning curve. The language should be familiar enough to be easily learned by programmers experienced with any one of the popular dynamically-typed scripting languages (Python, Ruby, Javascript) or one of the popular object-oriented production languages (C++, Java). For this reason, we chose to build Stanza's type system on top of the subtyping paradigm (as made popular by C++ and Java) and using the theory of nominal subtyping.
+
+The nominal subtyping-based type systems of Java, Scala, and C++ are closest in nature to Stanza's type system. The key differences include Stanza's support for the \code{?} type for expressing untyped code, union and intersection types for enabling common dynamic idioms to be typed, and a simpler parametric type system. Stanza's function types are also supported in Scala but not in Java or C++. Though Java and Scala both support parametric types, Stanza's design prioritizes ease-of-use over static safety and is only superficially similar to theirs. Stanza's parametric types are always covariant, allows for deep casts, and uses the captured type system for expressing polymorphic functions instead of a variance system. As evidence of its ease-of-use, we had no difficulty teaching students -- with no experience using typed languages -- how to define and use their own polymorphic functions. In contrast, Java's bounded wildcards and Scala's variance annotations are considered advanced topics. C++'s templates superficially resembles a parametric type system, but is actually a structured macro system and is more aptly compared to Stanza's macro system than its type system.
+
+Compared to the Hindley-Milner (HM) style type systems of OCaml and Haskell, Stanza's type system is less restrictive and more expressive, but also offers less guarantees. The HM type systems do not support subtyping, union or intersection types, or untyped code. Languages with HM type systems also presume a very different coding style than is common with dynamically-typed languages. Porting code from Python to OCaml, for example, usually requires significant structural changes. We have yet to measure whether the smaller number of guarantees offered by Stanza's type system actually translates to more errors in production code, but our experience is that, after type annotations have been added, the remaining undetected errors are almost always fundamental logic errors that would not have been caught by any type checker.
+
+Completely dynamic type systems as used by Python, Ruby, Lua, and Javascript can be modeled completely within Stanza's type system by declaring every variable/argument with the \code{?} type. Our experience shows that untyped code can be converted to typed code with minimal structural changes. The end result is that Stanza code largely resembles Python code but with additional type annotations.
+
+Julia's type system is similar to that of Python, being a completely dynamic system, but with the difference that objects are tagged with their parametric properties. In the implementation of traditional dynamically-typed languages, all objects carry along with it a type tag that indicates its runtime type. Thus, integer objects carry a tag indicating they're integers, and array objects carry a tag indicating they're arrays. But an array containing integers would not carry a tag for indicating that it is an array \italic{of integers}. Its tag would indicate only that it's an array. In contrast, Julia's tags are far richer and has tags for indicating, for example, an array of integers, or an array \italic{of} array of integers. This allows the Julia system to perform some significant optimizations and also dispatch to different code depending on the stated contents of an array. Nonetheless, Julia is still a completely dynamically typed language, as opposed to Stanza, and does not offer any capabilities for detecting type errors before execution.
+
+Dart and Typescript are the other two programming languages, beside Stanza, that boast an optional type system. While the goals of the type systems of all three languages are similar -- to elegantly mix untyped and typed code -- their underlying theories are not. The most crucial distinction is caused by the fundamental difference between Stanza's multimethod-based object system and the object systems of Dart and Typescript. Stanza's type system was designed specially to support its multimethod system -- which will be covered in depth in a later article -- and the type systems of Dart and Typescript were designed to support their own respective object systems. Dart also does not support polymorphic functions, and Typescript's type system is based on the theories of structural subtyping instead of nominal subtyping. Compared to Dart and Typescript, we placed greater emphasis on enabling users to transform untyped to typed code without making structural changes, and our users have reported that Stanza's types feel less invasive.
+
+\subheader{Our Experiences Using Stanza}
+
+We have used Stanza ourselves on four major projects thus far, and a handful of smaller ones. The largest project is the Stanza compiler itself, which consists of about 20KLoC, and was written entirely by a single graduate student. This includes the macro system, type system, optimizer, register allocator, code generator, garbage collector, and standard library. The compiler itself has been rewritten many times now as the language design evolved, with the last full rewrite taking about four months.
+
+The early Stanza compilers were originally written in Gambit Scheme because we were researching Stanza's coroutine semantics at the time and needed Scheme's continuation mechanism to evaluate our design. I distinctly remember the frustration of having to find and fix all of the runtime type errors caused by developing a large program in a dynamically-typed language. We treated each runtime error as a personal assurance that we were developing something useful. The Stanza compiler was not yet mature enough to consider writing Stanza in itself, and I remember that after tracking down each bug I would record whether it is an error that would have been caught by the Stanza compiler, or whether it was my own logic error. The final tally showed that the great majority were type errors caused by silly mistakes and I remember pining for the day when I would be able to implement the compiler in Stanza itself.
+
+Ironically for a prototyping language, the lack of a type checker caused the most anguish not during development but during experimentation when attempting to make adjustments to the design. During development, we broke down the compiler into subcomponents and tested each component extensively before developing and attaching the next component. By being reasonably disciplined, we could ensure that the code base was always at a reasonable level of correctness. If the system failed after attaching a new component, then the error was likely in the implementation of the new component and not in the existing code base. But adjustments in the design require us to make changes deep in some component in the middle of the compiler chain. A change in an interface would require us to consistently update all the passes downstream. Now the cause of a runtime error could be anywhere. It could be that the new algorithm itself was wrong. Or it could be that we forgot to properly update a line in any one of the later passes. In Scheme, the act of changing an intermediate pass of the compiler was an intimidating affair. Those fears entirely went away when we switched to implementing the compiler in Stanza.
+
+There was a short phase when I was dismayed at the slow progress of developing Stanza in Scheme and considered using Java instead. I hoped that the addition of a typechecker would reduce the time I spent hunting down mistakes and hasten progress. But after three weeks of porting the Scheme code to Java, I realized quickly that the productivity loss of coding in a non-functional language like Java far outweighed the benefit of a typechecker. There were single lines in Scheme that blew up to multiple levels of nested loops in Java, and my own coding style made heavy use of nested functions which were also unsupported by Java. The straw that broke the camel's back however was when I was considering how to port a piece of code that made heavy use of a sophisticated Scheme macro. The only two sensible options were to directly write out the expanded code by hand, or to write a Java preprocessor that generated the desired code. Faced with that decision, I decided it was a senseless endeavor and opted to just stick it out with Scheme until Stanza was bootstrapped. I reckon that many people share similar experiences with using dynamically-typed languages. The lack of a typechecker is incredibly frustrating but we're willing to put up with it because of the productivity gain from the rest of the language.
+
+The second major project with Stanza was the FIRRTL hardware design language and compiler. We trained a junior graduate student in Stanza to develop FIRRTL. The student had an electrical engineering background and little programming experience, but within three weeks was fluent in Stanza. In fact, he was comfortable with the core language after only a week and a half, but required the remaining time to learn enough of the core library to be productive. Stanza, by this time, was fairly mature, but documentation was still lacking. He commented that the language itself was easy to learn and his major complaint was having to read through the source code to learn the core library. Nonetheless, after three months, under our supervision, he had completed the datastructures for the intermediate representation, the lowering passes of the compiler, and the bitwidth constraint solver.
+
+The three other major projects written in Stanza are the Feeny teaching language, a declarative printed circuit board (PCB) design system, and a physical imaging application. Feeny was a minimal programming system consisting of an interpreter, bytecode compiler, virtual machine, and just-in-time compiler, written in about 7KLoC. It was used to teach a graduate course at Berkeley on virtual machines and managed runtimes. The PCB design system is roughly 10KLoC and takes as input a declarative listing of desired peripherals which is used to automatically compute and generate the circuit board layout, the wire routing, and startup and networking code. The physical imaging application is 10KLoC and applies a collection of digital signal filters to datasets of up to 10GB. The interface and project management code is written in Stanza and the computational kernels for the filters are implemented in C for efficiency and called from LoStanza. All three projects were implemented by a team of less than two programmers in less than one year. This was made possible by using a language with productivity and flexibility on par with a dynamically-typed scripting language but with the additional aid of an automated typechecker.
+
+The following summarizes our impressions of day-to-day programming with Stanza. The types are intuitive and expressive enough that it can easily type the typical coding styles of programmers with Java, Scheme, and Python experience. For the rare instances where it is not obvious how to type a segment of code, it is trivial to leave it untyped. Type errors are well-localized, easily understood, and fixed. In our experience writing the Stanza compiler, FIRRTL, and PCB system, we have consistently felt that Stanza's type system guided us towards writing well-documented and well-architected software, and we have never gone out of our way to satisfy the type system.
+
+\subheader{Our Experiences Teaching Stanza}
+
+We have held two Stanza bootcamps at Berkeley thus far, each lasting for six sessions of one and a half hours. Each bootcamp consisted of a series of presentations intermixed with hands-on exercises. Students were expected to follow along and do the exercises on their own laptops. We had two main goals in mind when organizing the teaching material. The first goal was to quickly teach the students enough of the core language and libraries for them to be as productive with Stanza as with existing languages. The second goal was to expose them briefly to features of Stanza that did not exist in mainstream languages. We were too pressed for time to explain Stanza's deeper features in detail, but by the end of the bootcamp, the students knew the rough purpose of each feature and knew where to look to find more information on their usages.
+
+Our experiences showed that students can comfortably learn the core language and libraries after roughly ten hours of instruction. After that time, they are able to code easily in Stanza, but still in the same style as the language they are most familiar with. The majority of students were most fluent in an imperative programming language (such as Java and idiomatic Python) and this was reflected in their coding style. We were, however, happy that we had no difficulty teaching the type system, even to students who have never programmed in a statically-typed language before. This includes the concepts of parametric types and polymorphic functions. When tasked with defining their own polymorphic functions, the students reported that the captured type system is quite intuitive to use. In constrast to OCaml and Haskell, because of Stanza's dataflow-based type inference engine, the reported type errors are also easy for students to understand and fix. After ten hours, all students were able to code Stanza in Java/Python style, and able to easily port their existing Java/Python code to Stanza.
+
+Three concepts that were harder for students to grasp were first-class functions, higher-order functions, and immutable datastructures. Students were able to easily understand the semantics of first-class and higher-order functions but had trouble recognizing when to use them. Even after teaching them to use and write their own versions of the common \italic{map} function, most students still preferred instead to write explicit loops. Similarly, Stanza's \code{List} type is immutable and students have no trouble understanding its basic operations, but for their exercises, most students still preferred to use the \code{Vector} type -- as it provided a function for adding an item to the end of the \code{Vector}. Note that students familiar with at least one functional programming language did not have difficulty with these concepts. We've also observed over time, that the students' coding styles gradually become more functional over time as they discover common idioms for shortening their code.
+
+The remaining concept which proved difficult to learn for students with both imperative and functional programming backgrounds was Stanza's multimethod-based object system. Students have no difficulty understanding the basic mechanism and usage of Stanza's \code{defmulti} and \code{defmethod} constructs, and can easily read existing code that makes use of those constructs. But when writing their own code, students report that the system feels restrictive and awkward relative to the class-based object systems that they are accustomed to. However, for the small number of students that have gone on to use Stanza for significant projects, we've noticed there is a learning "hump" that occurs after roughly one month of Stanza programming. Past this hump, students have consistently reported that, once they understood the system, the multimethod-based object system is one of Stanza's greatest strengths. They also report, at this point, that they are significantly more productive programming in Stanza than they were in existing languages. We are still searching for a better method for teaching the object system to eliminate or shorten the month-long learning hump.
+
+\subheader{Steps From Here}
+
+All narratives that advocate the productivity of a new programming language are, of course, anecdotal by nature. We have been very pleased with the productivity we've gained from the migration of our software stack to Stanza. More rigorous experiments are planned for characterizing the productivity curve of Stanza versus competing languages.
+
+A small number of type system extensions are currently under development, including support for bounded type parameters, constrained subtyping, type aliases, unsigned types, and an improved type inference engine. As has been the case so far, we place a strong emphasis on ease-of-use over static safety, and will strictly moderate the addition of features which complicate the language.
+
+This article did not cover any of the performance implications of the type system, but we are confident that the added type information provides many optimization opportunities for the compiler. A separate line of work consists of writing aggressive optimization passes that take advantage of types for better inlining and transformations.
+
+Ultimately, in the area of application programming, in the absence of hard real-time constraints, we don't foresee any fundamental limitations that would prevent Stanza from becoming the dominant language in this space. In the upcoming years we will be dedicated to making that happen.
+
+\subheader{Footnotes}
+
+[1] Without considering ambiguity errors resulting from function overloading.
+
+[2] For projects where both languages have equal support for any necessary libraries.
+
+\subheader{Acknowledgements}
+
+Thanks to Jonathan Bachrach for proof-reading and editing this article. Thanks to George Necula in helping to iron out many subtle technical issues with the type system.

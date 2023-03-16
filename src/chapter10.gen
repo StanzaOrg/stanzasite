@@ -1,0 +1,361 @@
+\chapter{Stanza's Type System}{
+This chapter summarizes and explains the mechanisms behind Stanza's optional type system in more depth.
+}
+Types are the basis for how Stanza decides whether expressions are legal or not, and how to select the appropriate version of an overloaded function. This chapter will explain the different kinds of types in Stanza, what values each type represents, and the subtype relation.
+
+\section{Kinds of Types}
+There are only a handful of basic kinds of types in Stanza. Here is a listing of them all.
+\list{
+\item Ground Types (e.g. \code{Int}, \code{String}, \code{True})
+\item Parametric Types (e.g. \code{Array<Int>}, \code{List<String>})
+\item Tuple Types (e.g. \code{[Int]}, \code{[Int, String]}, \code{[Int, True, String]})
+\item Function Types (e.g. \code{Int -> String}, \code{(Int, Int) -> Int})
+\item Union Types (e.g. \code{Int|String}, \code{True|False}, \code{Circle|Rectangle|Point})
+\item Intersection Types (e.g. \code{Collection<Int>&Lengthable})
+\item Void Type (\code{Void})
+\item Unknown Type (\code{?})
+}
+
+Each kind of type will be described in detail in this chapter. The only type that has not been introduced yet is the void type. Most importantly, we'll cover the \italic{subtyping} rules for each kind of type, which are the rules that Stanza uses to determine whether a program is legal.
+
+\section{The Subtype Relation}
+Stanza's type system is built upon the \italic{subtyping} relation. The most important operation on types is determining whether one type is a \italic{subtype} of another.  We use the following notation
+\code{
+A <: B
+}
+to indicate that the type \code{A} is a subtype of the type \code{B}. Intuitively, what this means is that Stanza will allow you to pass a value of type \code{A} to any place that is expecting a value of type \code{B}.
+
+In previous chapters, we have demonstrated examples using the types
+\code{
+deftype Shape
+deftype Circle <: Shape
+}
+According to these definitions, the \code{Circle} type is a subtype of \code{Shape}.
+\code{
+Circle <: Shape
+}
+This means that we may pass a \code{Circle} to any place that is expecting a \code{Shape}. For example, we can call functions that accept \code{Shape} arguments with \code{Circle} objects. We can initialize values and variables of type \code{Shape} with \code{Circle} objects. And we can return \code{Circle} objects from functions annotated to return \code{Shape} objects.
+
+Whether one type is a subtype of another is calculated from a set of \italic{subtyping rules}. There is a small set for handling each kind of type, and we'll introduce them to you gradually.
+
+\section{Ground Types}
+Ground types are the most basic types in Stanza and are simply types that don't take any type parameters. The majority of types used in daily programming are simple ground types. \code{Int}, \code{String}, \code{True}, \code{False}, and \code{Char} are a few examples of ground types that you've used.
+
+\subsection{Reflexivity Rule}
+There are two subtyping rules for ground types. The first is that a ground type is a subtype of itself.
+\code{
+T <: T
+}
+This rule is almost trivial. For example, here are some relations derivable from this rule.
+\code{
+Int <: Int
+String <: String
+True <: True
+}
+meaning that you can call a function that accepts \code{String} with an \code{String} object.
+
+\subsection{Parent Rule}
+Users may define their own ground types using \code{deftype}. For example, here is the type declaration for \code{Circle} again.
+\code{
+deftype Circle <: Shape
+}
+
+The general form for \code{deftype} is
+\code{
+deftype T <: P
+}
+
+Here is the second subtyping rule for ground types. The type \code{T} is a subtype of \code{X} if it can be proven that its parent type \code{P} is a subtype of \code{X}.
+\code{
+Assuming deftype T <: P
+T <: X if P <: X
+}
+
+Thus we can derive
+\code{
+Circle <: Shape
+}
+from
+\code{
+Assuming deftype Circle <: Shape
+Circle <: Shape because Shape <: Shape
+}
+
+This rule is what allows us to pass \code{Circle} objects to functions that accept \code{Shape} objects.
+
+\section{Parametric Types}
+Parametric types are types that take one or more \italic{type parameters}. \code{Array<Int>}, \code{List<String>}, and our own type, \code{Stack<String>}, are examples of parametric types.
+
+\subsection{Covariance Rule}
+First consider the case where a base type, \code{A}, takes only a single type parameter. This rule says that a parametric type \code{A<T>} is a subtype of another parametric type \code{A<S>} if it can be proven that its type parameter, \code{T}, is a subtype of the other's type parameter, \code{S}.
+\code{
+A<T> <: A<S> if T <: S
+}
+
+In general, for arbitrary numbers of type parameters, the parametric type \code{A<T1,T2, ..., Tn>} is a subtype of another parametric type \code{A<S1, S2, ..., Sn>} if its type parameters, \code{T1}, \code{T2}, ..., \code{Tn} are respectively subtypes of the other's type parameters, \code{S1}, \code{S2}, ..., \code{Sn}.
+\code{
+A<T1, T2, ..., Tn> <: A<S1, S2, ..., Sn> if
+   T1 <: S1 and
+   T2 <: S2 and
+   ...
+   Tn <: Sn
+}
+
+For example, we can derive
+\code{
+List<Circle> <: List<Shape>
+}
+from
+\code{
+List<Circle> <: List<Shape> because
+   Circle <: Shape
+}
+This rule is what allows us to pass a list of circles to a function expecting a list of shapes.
+
+\subsection{Parent Rule}
+Consider again the simple case where a base type, \code{A}, takes a single type parameter. Assume that \code{A} is defined the following way.
+\code{
+deftype A<S> <: P
+}
+The parent rule for parametric types says that the parametric type \code{A<T>} is a subtype of \code{X} if it can be proven that the result of replacing every occurrence of \code{S} in \code{P} with \code{T} is a subtype of \code{X}.
+\code{
+Assuming deftype A<S> <: P
+A<T> <: X if P[S := T] <: X
+}
+where the notation \code{P[S := T]} stands for the result of replacing every occurrence of \code{S} in \code{P} with \code{T}.
+
+Our parametric \code{Stack} type, for example, is declared
+\code{
+deftype Stack<T> <: Collection<T>
+}
+We can derive
+\code{
+Stack<Circle> <: Collection<Shape>
+}
+from
+\code{
+Stack<Circle> <: Collection<Shape> because
+   Collection<Circle> <: Collection<Shape> because
+      Circle <: Shape
+}
+
+Here is the general form of the rule for arbitrary numbers of type parameters.
+\code{
+Assuming deftype A<S1, S2, ..., Sn> <: P
+A<T1, T2, ..., Tn> <: X if
+   P[S1 := T1, S2 := T2, ..., Sn := Tn] <: X
+}
+It says that the parametric type \code{A<T1, T2, ..., Tn>} is a subtype of \code{X} if it can be proven that the result of replacing every occurrence of \code{S1}, \code{S2}, ..., \code{Sn} in \code{P} respectively with \code{T1}, \code{T2}, ..., \code{Tn} is a subtype of \code{X}.
+
+\section{Tuple Types}
+Tuple types are used for representing the types of tuple objects. They're special in that they take a \italic{variable} number of type parameters. Here is an example of a tuple type. The type
+\code{
+[Int, String]
+}
+represents a two-element tuple, where the first element is an \code{Int} and the second element is a \code{String}.
+
+\subsection{Covariance Rule}
+This rule says that the tuple type \code{[T1, T2, ..., Tn]} is a subtype of the tuple type \code{[S1, S2, ..., Sn]} if the types of the elements \code{T1}, \code{T2}, ..., \code{Tn} are respectively subtypes of the types of the other's elements \code{S1}, \code{S2}, ..., \code{Sn}.
+\code{
+[T1, T2, ..., Tn] <: [S1, S2, ..., Sn] if
+   T1 <: S1 and
+   T2 <: S2 and
+   ...
+   Tn <: Sn
+}
+For example, we can derive
+\code{
+[Circle, Rectangle] <: [Shape, Shape]
+}
+from
+\code{
+[Circle, Rectangle] <: [Shape, Shape] because
+   Circle <: Shape and
+   Rectangle <: Shape
+}
+
+\subsection{Collapsed Tuple Rule}
+The type \code{Tuple} is used to represent a tuple of \italic{unknown} arity. This rule allows us to pass tuples with known arity to places expecting tuples with unknown arity.
+\code{
+[T1, T2, ..., Tn] <: X if Tuple<T1|T2|...|Tn> <: X
+}
+It says that a tuple of known arity containing elements of type \code{T1}, \code{T2}, ..., \code{Tn} is a subtype of \code{X} if it can be proven that the tuple of unknown arity \code{Tuple<T1|T2|...|Tn>} is a subtype of \code{X}.
+
+The type \code{Tuple<T>} is defined to be a subtype of \code{Collection<T>} in the core library, so this rule is what allows us to pass in tuples to functions that expect collections. For example, we can derive
+\code{
+[Int, Int, Int] <: Collection<Int>
+}
+from
+\code{
+[Int, Int, Int] <: Collection<Int> because
+   Tuple<Int|Int|Int> <: Collection<Int> because
+      Int|Int|Int <: Int
+}
+
+\section{Function Types}
+Function types are used to represent the type of function objects. We've used them in the previous chapters to write functions that accept other functions as arguments.
+
+Let us first consider just functions that take a single argument.
+\code{
+T1 -> S1 <: T2 -> S2 if
+   S1 <: S2 and
+   T2 <: T1
+}
+The rule says that a function type \code{T1 -> S1} is a subtype of another function type \code{T2 -> S2} if it can be proven that the return type of the first, \code{S1}, is a subtype of the return type of the second, \code{S2}, and if the argument type of the second, \code{T2}, is a subtype of the argument type of the first, \code{T1}.
+
+\subsection{Covariance}
+This rule is a little confusing at first, so let's go it carefully. First, the following relation
+\code{
+Int -> Circle <: Int -> Shape
+}
+can be derived from
+\code{
+Int -> Circle <: Int -> Shape because
+   Circle <: Shape and
+   Int <: Int
+}
+Suppose we are calling a function, \code{f}, that requires a function argument. What this rule means is that if \code{f} requires its argument to return \code{Shape} objects, then we are allowed to pass it a function that returns \code{Circle} objects. This makes sense as all circles are shapes. So assuming that \code{f} calls its argument function, then whatever \code{f} will do with the resultant \code{Shape} objects, \code{f} can also do with \code{Circle} objects.
+
+\subsection{Contravariance}
+Next, the following relation
+\code{
+Shape -> Int <: Circle -> Int
+}
+can be derived from
+\code{
+Shape -> Int <: Circle -> Int because
+   Int <: Int and
+   Circle <: Shape
+}
+Suppose we are again calling a function, \code{f}, that requires a function argument. What this rule means is that if \code{f} requires its argument to accept \code{Circle} objects, then we are allowed to pass it a function that accepts \code{Shape} objects. This makes sense as all functions that can accept \code{Shape} objects, can also accept \code{Circle} objects.
+
+The general rule for function types results from the combination of functions being \italic{covariant} in its return type and \code{contravariant} in its argument types.
+
+\subsection{General Form}
+Here is the general form of the function subtyping rule for arbitrary numbers of arguments.
+\code{
+(T1, T2, ..., Tn) -> R1 <: (S1, S2, ..., Sn) -> R2 if
+   R1 <: R2 and
+   S1 <: T1 and
+   S2 <: T2 and
+   ...
+   Sn <: Tn
+}
+Thus a function type \code{(T1, T2, ..., Tn) -> R1} is a subtype of another function type \code{(S1, S2, ..., Sn) -> R2} if it can be proven that the return type of the first, \code{R1}, is a subtype of the return type of the second, \code{R2}, and the argument types of the second, \code{S1}, \code{S2}, ..., \code{Sn}, are respectively subtypes of the argument types of the first, \code{T1}, \code{T2}, ..., \code{Tn}.
+
+\section{Union Types}
+Union types are used to represent a value who could either be of one type or another. The type \code{Int|String}, for example, represents a value that could either be an \code{Int} or a \code{String}.
+
+\subsection{Expecting a Union Type}
+The following rule says that a type, \code{X}, is a subtype of a union type, \code{A|B}, if it can be proven that \code{X} is either a subtype of \code{A} or a subtype of \code{B}.
+\code{
+X <: A|B if X <: A or X <: B
+}
+
+For example, we can derive
+\code{
+Int <: Int|String
+}
+from
+\code{
+Int <: Int|String because Int <: Int
+}
+
+This rule allows us to write functions that accept a variety of types, and be allowed to pass it a specific one.
+
+\subsection{Passing a Union Type}
+The following rule says that a union type, \code{A|B}, is a subtype of \code{X}, if it can be proven that both \code{A} is a subtype of \code{X} and \code{B} is a subtype of \code{X}.
+\code{
+A|B <: X if A <: X and B <: X
+}
+
+For example, we can derive
+\code{
+Circle|Rectangle|Point <: Shape
+}
+from
+\code{
+Circle | (Rectangle|Point) <: Shape because
+   Circle <: Shape and
+   Rectangle|Point <: Shape because
+      Rectangle <: Shape and
+      Point <: Shape
+}
+
+This rule is what causes Stanza to error if you attempt to pass a \code{Int|String} object to a function that requires an \code{Int} object.
+
+\section{Intersection Types}
+Intersection types are the dual of union types, and are used to indicate that a value is both of one type and also of another. The type \code{Collection<Int> & Lengthable}, for example, represents an object that is simultaneously both a collection of integers and also a \code{Lengthable} object.
+
+\subsection{Expecting an Intersection Type}
+The following rule says that a type, \code{X}, is a subtype of an intersection type, \code{A&B}, if it can be proven that \code{X} is both a subtype of \code{A} and also a subtype of \code{B}.
+\code{
+X <: A&B if X <: A and X <: B
+}
+
+For example, we can derive
+\code{
+Stack<Int> <: Collection<Int> & Lengthable
+}
+from
+\code{
+Stack<Int> <: Collection<Int> & Lengthable because
+   Stack<Int> <: Collection<Int> and
+   Stack<Int> <: Lengthable
+}
+
+\subsection{Passing an Intersection Type}
+The following rule says that an intersection type \code{A&B} is a subtype of \code{X} if it can be proven that either \code{A} is a subtype of \code{X} or \code{B} is a subtype of \code{X}.
+\code{
+A&B <: X if A <: X or B <: X
+}
+
+For example, we can derive
+\code{
+Stack<Int> <: Lengthable
+}
+from
+\code{
+Stack<Int> <: Lengthable because
+   Collection<Int> & Lengthable <: Lengthable because
+      Lengthable <: Lengthable
+}
+
+\section{The Void Type}
+The void type is a special type in Stanza that represents \italic{no value}.
+
+It is used, for example, as the return type of the \code{fatal} function, which simply prints an error message and then immediately quits the program. \code{fatal} never returns, so it's inappropriate to say that it returns \italic{any} type. \code{throw} is another function that returns \code{Void}, as it also never returns to its caller.
+
+It is occasionally also used as a type parameter for collection types. For example, the following call
+\code{
+val xs = List()
+}
+creates an object of type \code{List<Void>} and assigns it to \code{xs}. Recall that calling \code{head} on a value of type \code{List<T>} returns \code{T}. Similarly, calling \code{head} on a value of type \code{List<Void>} returns \code{Void}, indicating that such a call would not return.
+
+The only subtyping rule for \code{Void} is that it is a subtype of any type, \code{T}.
+\code{
+Void <: T
+}
+
+For programmers familiar with the \code{void} type in the C and Java programming language, note that this is not the same concept. A C function that returns \code{void} still returns. It simply returns a meaningless value, so you're forbidden from using it for anything. In contrast, a Stanza function that returns \code{Void} \italic{does not return}.
+
+\section{The Unknown Type}
+The unknown type is a very important type and forms the basis of Stanza's optional typing system. There are two subtyping rules that defines its behaviour.
+
+ \subsection{Expecting an Unknown Type}
+ The following rule says that \italic{any} type, \code{T}, is a subtype of \code{?}.
+\code{
+T <: ?
+}
+
+When we declare a function that accepts arguments of type \code{?}, it is this rule that allows us to pass any object to the function.
+
+\subsection{Passing an Unknown Type}
+The following rule says that the unknown type, \code{?}, is a subtype of \italic{any} type, \code{T}.
+\code{
+? <: T
+}
+
+Given a value or argument declared with the \code{?} type, it is this rule that allows us to pass this value anywhere, regardless of what type is actually expected.
+
+These two rules together allows Stanza to model the behaviour of dynamically-typed scripting languages in a principled manner. The behaviour of the Python programming language, for example, can be mimicked by declaring every argument and value as having the unknown type.

@@ -1,0 +1,8 @@
+include "../webgen/stanza.proj"
+package stanza-site defined-in "src/site.stanza"
+
+build main :
+  inputs: stanza-site
+  o: "bin/site"
+  
+  

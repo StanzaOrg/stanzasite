@@ -1,0 +1,5 @@
+\read(src/template.gen)
+\bookpages{
+   \page{tetris.gen}
+   \page{delta_framework.gen}
+}

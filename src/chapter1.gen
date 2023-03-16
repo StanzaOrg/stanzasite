@@ -1,0 +1,182 @@
+\chapter{Getting Started}{
+This chapter explains how to download and install Stanza for your system, compile the example programs, and also write your own very first Stanza program.
+}
+This chapter explains how to download and install Stanza for your system, compile the example programs, and also write your own very first Stanza program.
+
+\section{Get Stanza}
+\subsection{Download Stanza}
+Navigate to \code{www.lbstanza.org}, go to the Downloads section of the webpage, and download the zip file containing the Stanza compiler for your platform. Unzip the file contents to a folder called \code{mystanza}. This is the directory where Stanza will be installed.
+
+The main Stanza compiler should be located at
+\code{
+mystanza/stanza
+}
+
+and the core and collections libraries should be located at
+\code{
+mystanza/core/core.stanza
+mystanza/core/collections.stanza
+}
+
+\subsection{Installing on Linux and OS-X}
+If you're on a linux platform, open the terminal and type
+\code{
+cd mystanza
+./stanza install -platform linux
+}
+
+If you're on Mac OS-X, then type instead
+\code{
+cd mystanza
+./stanza install -platform os-x
+}
+
+This creates a \code{.stanza} file in your home directory that contains the installation directory for Stanza.
+
+\subsection{Put Stanza in your Path}
+Type the following if you want to be able to call Stanza from any working directory.
+\code{
+sudo ln stanza /usr/local/bin/stanza
+}
+
+\subsection{Installing on Windows}
+Open \code{cmd.exe} and type
+\code{
+cd mystanza
+stanza install -platform windows -path .
+}
+
+This creates a \code{.stanza} file in the \code{mystanza} directory. Stanza will print out a message telling you to set the \code{STANZA_CONFIG} environment variable to the installation directory. Additionally, add the \code{mystanza} directory to the \code{PATH} environment variable to be able to run stanza from any directory.
+
+Running Stanza on windows additionally requires the MinGW-w64 port of the gcc compiler. Download the \code{mingw-w64-install.exe} installer from \aT[href=https://sourceforge.net/projects/mingw-w64/]{https://sourceforge.net/projects/mingw-w64/} and run it. By default, it is installed in \code{\#{C:\Program Files\mingw-w64\#}}. Add the MinGW-w64 \code{bin} directory to the \code{PATH} environment variable.
+
+At the time of writing, the \code{bin} directory corresponding to our MinGW-w64 installation was located at
+\code{\#{
+C:\Program Files\mingw-w64\x86_64-5.3.0-posix-seh-rt_v4-rev0\mingw64\bin
+\#}}
+
+\subsection{Test}
+Type the following in the terminal
+\code{
+stanza version
+}
+It should print out the version of the Stanza compiler that you downloaded. If you don't see this, then double check that
+\list{
+\item you downloaded Stanza for the right platform.
+\item you installed Stanza with the correct \code{-platform} flag.
+\item you put Stanza on your path.
+}
+
+\subsection{Compile an Example}
+Type the following in the terminal
+\code{
+cd mystanza
+stanza examples/helloworld.stanza -o helloworld
+}
+This should compile the \code{helloworld} example that comes with Stanza and generate an executable called \code{helloworld}. If this does not work, then double check that
+\list{
+\item you are in the \code{mystanza} folder.
+\item you installed Stanza with the correct \code{-platform} flag.
+\item you have the Gnu C compiler installed and can call it by typing \code{cc} (or \code{gcc} for Windows) in the terminal.
+}
+
+\subsection{Run the Example}
+Type the following to run the compiled executable. It should print out "hello world".
+\code{
+./helloworld
+}
+
+If you're running Windows, then type either
+\code{
+helloworld
+}
+or
+\code{
+helloworld.exe
+}
+
+Congratulations! You've successfully installed Stanza! Now try compiling and running the other examples in the \code{examples} directory.
+
+\section{Write a Program}
+\subsection{Basic Skeleton}
+Create a folder called \code{stanzaprojects} and create a file called \code{hello.stanza} containing
+\code{
+defpackage mypackage :
+   import core
+   
+defn main () :
+   println("Timon")
+   println("and")
+   println("Pumbaa")
+
+main()
+}
+Make sure you don't forget the space between the \code{main} and the \code{()}! We will explain later why this is important. Compile and run it by typing
+\code{
+stanza hello.stanza -o hello
+./hello
+}
+
+It should print out
+\code{
+Timon
+and
+Pumbaa
+}
+
+\subsection{More println Statements}
+Surround the call to \code{main} with the following print statements
+\code{
+println("Simba")
+main()
+println("and Nala")
+}
+
+Run the program again and it should print out
+\code{
+Simba
+Timon
+and
+Pumbaa
+and Nala
+}
+
+The program runs in the order that it sees the top-level statements.
+
+\subsection{Delete the Call to main}
+Delete the call to \code{main} entirely.
+\code{
+println("Simba")
+println("and Nala")
+}
+
+Now the program prints out
+\code{
+Simba
+and Nala
+}
+
+If you don't call \code{main} then it never runs.
+
+\subsection{Rename main}
+Rename the \code{main} function to \code{hakuna}. 
+\code{
+defpackage mypackage :
+   import core
+   
+defn hakuna () :
+   println("Timon")
+   println("and")
+   println("Pumbaa")
+
+hakuna()
+}
+
+The program still prints out
+\code{
+Timon
+and
+Pumbaa
+}
+
+There is nothing special about the \code{main} function. Name it whatever you like.

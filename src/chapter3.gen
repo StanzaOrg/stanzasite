@@ -1,0 +1,1205 @@
+\chapter{The Less Basic}{
+This chapter teaches some constructs in Stanza that you may not be familiar with coming from other languages.
+}
+
+\section{More about Structs}
+\subsection{Mutable Fields}
+In the last chapter, you were taught how to define structs and create objects. But the structs you created were \italic{immutable}. You couldn't change the objects at all after you created them. 
+
+Here was our original definition of \code{Dog}. 
+\code{
+defstruct Dog :
+   name: String
+   breed: String
+}
+
+We can create a dog by calling the \code{Dog} function with a provided name and breed. But once created, you cannot change a dog's name or breed. Here's how to define \code{Dog} with a \italic{setter function} for changing its name.
+\code{
+defstruct Dog :
+   name: String with: (setter => set-name)
+   breed: String
+}
+Now we can use the \code{set-name} function to change a dog's name.
+\code{
+val d = Dog("Shadow", "Golden Retriever")
+println("I used to be called %_." % [name(d)])
+set-name(d, "Sir Shadow the Wise")
+println("But now I am called %_." % [name(d)])
+}
+prints out
+\code{
+I used to be called Shadow.
+But now I am called Sir Shadow the Wise.
+}
+
+With the above definition of \code{Dog}, we can change a dog's name but not its breed. If we want to be able to change the breed as well then we need to similarly give it a setter function. 
+
+The convention is to call the setter function the same name as the field it's setting but with a \code{set-} prefix. Follow this convention unless you have a good reason not to.
+
+\subsection{Providing Custom Printing Behaviour}
+We are used to using the \code{print} and \code{println} functions for printing things. Almost all of Stanza's core types can be printed using \code{print}. But \code{print} doesn't yet know how to print \code{Dog} objects. So the following
+\code{
+val d = Dog("Shadow", "Golden Retriever")
+println("They call me %_." % [d])
+}
+prints out the fairly useless message
+\code{
+They call me [Unprintable Object].
+}
+
+Here is how to provide custom printing behaviour for \code{Dog} objects.
+\code{
+defmethod print (o:OutputStream, d:Dog) :
+   print(o, "%_ the %_." % [name(d), breed(d)])
+}
+
+Now the same code
+\code{
+val d = Dog("Shadow", "Golden Retriever")
+println("They call me %_." % [d])
+}
+prints out
+\code{
+They call me Shadow the Golden Retriever.
+}
+
+The \code{defmethod} keyword \italic{extends} a defined \italic{multi} with a new \italic{method}. We'll learn what that all means later. This gives you small taste of Stanza's multimethod functionality and is the basis for Stanza's class-less object system. 
+
+In the body of the \code{print} method
+\code{
+print(o, "%_ the %_." % [name(d), breed(d)])
+}
+be especially mindful of the \code{o} argument to \code{print}. This argument says to print the message to the \code{o} \italic{output stream}.
+
+\section{The Match Expression}
+Now that you are familiar with a number of different types and know how to create objects of each one, you'll have to learn how to differentiate between them. 
+Here's how to write a function that does different things depending on whether its argument is an integer or a string.
+\code{
+defn what-am-i (x) :
+   match(x) :
+      (i:Int) : println("I am %_. I am an integer." % [i])
+      (s:String) : println("I am %_. I am a string." % [s])
+}
+If we call it with an integer
+\code{
+what-am-i(42)
+}
+then it prints out
+\code{
+I am 42. I am an integer.
+}
+
+But if we call it with a string
+\code{
+what-am-i("Timon")
+}
+then it prints out
+\code{
+I am Timon. I am a string.
+}
+
+If we call it with neither an integer or a string
+\code{
+what-am-i(false)
+}
+then the program crashes.
+\code{
+FATAL ERROR: No matching branch.
+   at stanzaproject/lessbasic.stanza:5.9
+   at stanzaproject/lessbasic.stanza:9.0
+}
+
+\subsection{General Form}
+Here's the general form of a match expression.
+\code{
+match(argument expressions ...) :
+   (argname:ArgType ...) : body
+   ...
+}
+A match expression
+\list{
+\item computes the result of evaluating all the argument expressions,
+\item then tests to see whether the results match the argument types indicated in the first branch.
+\item If the types match, then the branch argument names are \italic{bound} to the results, and the branch body is evaluated. The result of the branch is the result of the entire match expression.
+\item If the types do not match, then the subsequent branch is tried. This continues either until a branch finally matches, or no branch matches and the program crashes.
+}
+
+\subsection{Name Shadowing}
+The match expression branches each start a new scope, and the branch arguments are only visible from within that scope. To avoid confusing you we gave new names (\code{i} and \code{s}) to the branch arguments in our example
+\code{
+defn what-am-i (x) :
+   match(x) :
+      (i:Int) : println("I am %_. I am an integer." % [i])
+      (s:String) : println("I am %_. I am a string." % [s])
+}
+but you can really use any name for the branch arguments. In fact, it is common to use the same name as the value that you are matching on.
+\code{
+defn what-am-i (x) :
+   match(x) :
+      (x:Int) : println("I am %_. I am an integer." % [x])
+      (x:String) : println("I am %_. I am a string." % [x])
+}
+
+\subsection{Matching Multiple Arguments}
+The match expression supports matching against \italic{multiple} arguments. Here's a function that returns different things depending on the types of both of its arguments.
+\code{
+defn differentiate (x, y) :
+   match(x, y) :
+      (x:Int, y:Int) : 0
+      (x:Int, y:String) : 1
+      (x:String, y:Int) : 2
+      (x:String, y:String) : 3
+}
+If we call it with different combinations of integers and strings
+\code{
+println(differentiate(42, 42))
+println(differentiate(42, "Timon"))
+println(differentiate("Pumbaa", 42))
+println(differentiate("Timon", "Pumbaa"))
+}
+it returns different results for each. The above prints out
+\code{
+0
+1
+2
+3
+}
+
+\subsection{Example: Cats and Dogs}
+Here's a definition of two structs, \code{Cat} and \code{Dog}. 
+\code{
+defstruct Dog : (name:String)
+defstruct Cat : (name:String)
+}
+
+Here's the definition of a \code{say-hi} function that prints different messages depending on whether \code{x} is a \code{Cat} or \code{Dog}. 
+\code{
+defn say-hi (x) :
+   match(x) :
+      (x:Dog) : println("Woof says %_ the dog." % [name(x)])
+      (x:Cat) : println("Meow says %_ the cat." % [name(x)])
+}
+
+Let's call it a few times. 
+\code{
+say-hi(Dog("Shadow"))
+say-hi(Dog("Chance"))
+say-hi(Cat("Sassy"))
+}
+prints out
+\code{
+Woof says Shadow the dog.
+Woof says Chance the dog.
+Meow says Sassy the cat.
+}
+
+\subsection{Introducing Union Types}
+One problem with the \code{say-hi} function is that it allows us to pass obviously incorrect arguments to it, which crashes the program.
+\code{
+say-hi(42)
+}
+results in
+\code{
+FATAL ERROR: No matching branch.
+   at stanzaproject/lessbasic.stanza:5.9
+   at stanzaproject/lessbasic.stanza:9.0
+}
+
+This is because we didn't give \code{x} a type annotation
+\code{
+defn say-hi (x)
+}
+which we've said is equivalent to declaring it with the \code{?} type.
+\code{
+defn say-hi (x:?)
+}
+The \code{?} type, by definition, allows us to pass anything to it, so Stanza is doing what it should, even though it's not what we want.
+
+We would like to give \code{x} a type annotation that prevents us from passing \code{42} to \code{say-hi}, but what should it be? It's neither \code{Dog} nor \code{Cat} because \code{say-hi} has to accept them both. The solution is to annotate \code{say-hi} to take \italic{either} a \code{Dog} \italic{or} a \code{Cat}. 
+\code{
+defn say-hi (x:Dog|Cat) :
+   match(x) :
+      (x:Dog) : println("Woof says %_ the dog." % [name(x)])
+      (x:Cat) : println("Meow says %_ the cat." % [name(x)])
+}
+
+You can verify that calling \code{say-hi} with dogs and cats continue to work, but more importantly, that calling \code{say-hi} with \code{42} \italic{doesn't} work. Attempting to compile
+\code{
+say-hi(42)
+}
+gives the error
+\code{
+Cannot call function say-hi of type Cat|Dog -> False with arguments of type (Int).
+}
+
+\code{Cat|Dog} is an example of a \italic{union type}. Union types allow us to specify the concept of "either this type or that type". 
+
+\subsection{Branches with Unspecified Types}
+If you leave off the type annotation for an argument in a match expression branch, then Stanza will automatically infer it to have the same type as the match argument expression. The following
+\code{
+defn f (x:Int|String) :
+   match(x) :
+      (x:Int) : body
+      (x) : body2
+}
+is equivalent to
+\code{
+defn f (x:Int|String) :
+   match(x) :
+      (x:Int) : body
+      (x:Int|String) : body2
+}
+
+This is often used to provide a default branch to run when none of the preceeding branches match.
+
+\subsection{Revisiting the If Expression}
+Now that you've been introduced to the match expression, it's time to unveil the inner workings of the if expression. It turns out that the if expression is just a slightly decorated match expression.
+\code{
+if x < 4 :
+   println("Do this")
+else :
+   println("Do that")
+}
+is completely equivalent to
+\code{
+match(x < 4) :
+   (p:True) : println("Do this")
+   (p:False) : println("Do that")
+}
+
+The if expression is an example of a simple \italic{macro}. Macros are very powerful tools for simplifying the syntax of commonly used patterns. Stanza includes many constructs that are simply decorated versions of other constructs, each implemented as a macro. The defstruct statement is another example. Later, we'll learn how to write our own macros to provide custom syntax for common patterns.
+
+\section{The Is Expression}
+Often you simply want to determine whether an object is of a certain type. Here is a long-winded method for checking whether \code{x} is a \code{Dog} object or not.
+\code{
+val dog? = match(x) :
+              (x:Dog) : true
+              (x) : false
+}
+
+Because this operation is so common, Stanza provides a shorthand for it. The above can be rewritten equivalently as
+\code{
+val dog? = x is Dog
+}
+
+Here is the general form.
+\code{
+exp is Type
+}
+It first evaluates \code{exp} and then returns \code{true} if the result is of type \code{Type}. Otherwise it returns \code{false}. The is expression is another example of a convenience syntax implemented using a macro. As you've noticed by now, Stanza's core library makes heavy use of macros.
+
+The negative form of the is expression is the is-not expression. The following determines whether \code{x} is \italic{not} a type of \code{Dog}.
+\code{
+val not-dog? = x is-not Dog
+}
+
+\section{Casts}
+Stanza's type system is designed primarily to be \italic{predictable}, not necessarily smart. This means that, as the programmer, you will often be able to infer a more specific type for an object than Stanza. Here is an example.
+\code{
+defn meow (x:Cat) :
+   println("Meow!!!")
+   
+defn f (x:Cat|Dog) :
+   val catness = if x is Cat : 1 else : -1
+   if catness > 0 :
+      meow(x)
+}
+Attempting to compile the above gives the error
+\code{
+Cannot call function meow of type Cat -> False with arguments of type (Dog|Cat).
+}
+
+Stanza believes that \code{x} is a \code{Dog|Cat}, but from our reasoning, the only way that \code{meow} can be called is if \code{catness} is positive. And \code{catness} is only positive if \code{x} is a \code{Cat}. Therefore \code{x} must be a \code{Cat} in the call to \code{meow} and the code should be fine.
+
+To force Stanza to accept \code{x} as a \code{Cat}, we can explicitly \italic{cast} \code{x}.
+\code{
+defn f (x:Cat|Dog) :
+   val catness = if x is Cat : 1 else : -1
+   if catness > 0 :
+      meow(x as Cat)
+}
+The cast tells Stanza to trust your assertion that \code{x} is indeed a \code{Cat}. If, for some reason, your reasoning is faulty and \code{x} turns out not to be a \code{Cat}, then the incorrect cast will cause the program to crash at that point.
+
+\section{Deep Casts}
+Stanza's cast mechanism is much more flexible than many other languages, and, in particular, supports the notion of a \italic{deep cast}. 
+Here is a function that takes an array of integers or strings, and replaces each string in the array with its length.
+\code{
+defn compute-lengths (xs:Array<Int|String>) :
+   for i in 0 to length(xs) do :
+      match(xs[i]) :
+         (x:String) : xs[i] = length(x)
+         (x:Int) : false
+}
+
+And here is a function that computes the sum of an array of integers.
+\code{
+defn sum-integers (xs:Array<Int>) :
+   var sum = 0
+   for i in 0 to length(xs) do :
+      sum = sum + xs[i]
+   sum   
+}
+
+Now, given an array containing both integers and strings, we want to first replace each string with its length, and then compute the sum of the integers in the array.
+\code{
+val xs = Array<Int|String>(4)
+xs[0] = 42
+xs[1] = 7
+xs[2] = "Timon"
+xs[3] = "Pumbaa"
+
+compute-lengths(xs)
+sum-integers(xs)
+}
+
+Attempting to compile the above gives us the error
+\code{
+Cannot call function sum-integers of type Array<Int> -> Int with arguments 
+of type (Array<String|Int>).
+}
+Stanza is complaining that \code{sum-integers} requires an array of integers, so \code{xs} is an illegal argument as it might contain strings. 
+
+But \italic{we} know that \code{xs} will not contain any strings at that point because \code{compute-lengths} replaced all of them with their lengths. So we can use a cast to force Stanza to trust this assertion.
+\code{
+sum-integers(xs as Array<Int>)
+}
+With the above correction, the program now compiles and runs correctly.
+
+\subsection{Types as Contracts}
+The above was an example of a \italic{deep} cast, because it wasn't a direct assertion about the type of \code{xs}, but about the types of the objects it \italic{contains}. You might be wondering, then, what exactly does that cast do? Does it iterate through the array and check every element to see if it is an \code{Int}? You'll be relieved to hear that it does not. That would be hopelessly inefficient, and also impossible in general. 
+
+To answer the question, let's investigate what the cast does in the case that we're wrong. Change the definition of \code{compute-lengths} to this.
+\code{
+defn compute-lengths (xs:Array<Int|String>) :
+   for i in 0 to length(xs) - 1 do :
+      match(xs[i]) :
+         (x:String) : xs[i] = length(x)
+         (x:Int) : false
+}
+It now forgets to check the last element. So even after the call to \code{compute-lengths}, \code{xs} still contains one last string (\code{"Pumbaa"}) at the end, and thus our cast is incorrect.
+
+Compile and run the program. It should crash with this error.
+\code{
+FATAL ERROR: Cannot cast value to type.
+   at core/core.stanza:3062.16
+   at stanzaprojects/lessbasic.stanza:13.18
+   at core/core.stanza:2292.9
+   at core/core.stanza:4042.16
+   at stanzaprojects/lessbasic.stanza:12.28
+   at stanzaprojects/lessbasic.stanza:23.0
+}
+The file position \code{stanzaprojects/lessbasic.stanza:13.18} tells us that the error occurred in the reference to \code{xs[i]} in \code{sum-integers}. Stanza is saying that it was expecting \code{xs[i]} to be an \code{Int} because you promised that \code{xs} is an \code{Array<Int>}. But \code{xs[i]} is \italic{not} an \code{Int}, and so your program is wrong.
+
+In general, a value's type in Stanza does not directly say what it \italic{is}. Instead, a value's type is a \italic{contract} on how it should behave. Part of the contract for an \code{Array<Int>} is that it should only contain \code{Int} objects. The above program crashed as soon as Stanza determined that \code{xs} does not satisfy its contract. 
+
+\section{Operations on Strings}
+There are many useful operations on \code{String} objects available in the core library. We'll show a few of them here.
+
+\subsection{Length}
+Here's how to obtain the length of a string.
+\code{
+val s = "Hello World"
+length(s)
+}
+
+\subsection{Retrieve Character}
+Here's how to retrieve a given character in a string.
+\code{
+val s = "Hello World"
+s[4]
+}
+The first character has index 0, and the last character is indexed one less than the length of the string. There is no function for setting the character in a string because strings are \italic{immutable} in Stanza. 
+
+\subsection{Convert to String}
+Here's how to convert any object into a string.
+\code{
+to-string(42)
+}
+
+\subsection{Append}
+Here's how to form a longer string from appending two strings together.
+\code{
+val s1 = "Hello "
+val s2 = "World"
+append(s1, s2)
+}
+
+\subsection{Substring}
+Here's how to retrieve a range of characters within a string.
+\code{
+val str = "Hello World"
+println(str[4 to 9])
+}
+prints out
+\code{
+o Wor
+}
+It's all the characters between index 4 (inclusive) and index 9 (exclusive) in the string.
+
+If we wanted to include the ending index, then we can use the \code{through} keyword, just as we've learned from the previous chapter.
+\code{
+println(str[4 through 9])
+}
+prints out
+\code{
+o Worl
+}
+
+If we wanted to extract all characters from index 4 until the end of the string, we can use \code{false} as the ending index.
+\code{
+println(str[4 to false])
+}
+prints out
+\code{
+o World
+}
+
+Check out the reference documentation for a listing of operations supported by \code{String} objects.
+
+\section{Operations on Tuples}
+Tuples support a few additional operations for querying its properties.
+
+\subsection{Length}
+Here is how to retrieve the length of a tuple.
+\code{
+val t = [4, 42, "Hello"]
+length(t)
+}
+
+\subsection{Retrieve an Element}
+Here is how to retrieve an element in a tuple at a \italic{dynamically} calculated index.
+\code{
+val t = [4, 42, "Hello"]
+val i = 1 + 1
+println(t[i])
+}
+prints out
+\code{
+Hello
+}
+
+Note that, in general, a dynamically calculated index is not known until the program actually runs. This means that Stanza does not try to determine a precise type for the result of \code{t[i]}. The resulting type of \code{t[i]} is the union of all the element types in the tuple.
+
+Attempting to compile this
+\code{
+val t = [4, 42, "Hello"]
+val x:Int = t[0 + 1]
+}
+results in the error
+\code{
+Cannot assign expression of type Int|String to value x with declared type Int.
+}
+The tuple \code{t} has type \code{[Int, Int, String]}, and so an arbitrary element at an unknown index has type \code{Int|String}. 
+
+To overcome this, you may explicitly cast the result to an \code{Int} yourself. 
+\code{
+val t = [4, 42, "Hello"]
+val x:Int = t[0 + 1] as Int
+}
+
+Check out the reference documentation for a listing of operations supported by tuples.
+
+\subsection{Tuples of Unknown Length}
+The type \code{[Int]} is a tuple containing one integer, and the type \code{[Int, Int]} is a tuple containing two integers, et cetera. But what if we want to write a function that takes a tuple of \italic{any} number of integers?
+
+Here is a function that prints out every number in a tuple of integers.
+\code{
+defn print-tuple (t:Tuple<Int>) :
+   for i in 0 to length(t) do :
+      println(t[i])
+}
+
+The following
+\code{
+print-tuple([1, 2, 3])
+}
+prints out
+\code{
+1
+2
+3
+}
+
+But the following
+\code{
+print-tuple([1, "Timon"])
+}
+fails to compile with the error
+\code{
+Cannot call function print-tuple of type Tuple<Int> -> False with arguments
+of type ([Int, String]).
+}
+
+In general, the type \code{Tuple<Type>}  represents a tuple of unknown length where each element type is of type \code{Type}. 
+
+\section{Packages}
+Thus far, all of your code has been contained in a single package. When your projects get larger, you'll start to feel the need to split up the entire program into smaller isolated components. In Stanza, you would do this by partitioning your program into multiple \italic{packages}. 
+
+Create a separate file called \code{animals.stanza} containing
+\code{
+defpackage animals :
+   import core
+
+defstruct Dog :
+   name: String
+defstruct Cat :
+   name: String
+
+defn sound (x:Dog|Cat) :
+   match(x) :
+      (x:Dog) : "woof"
+      (x:Cat) : "meow"
+}
+The \code{animals} package contains all of our code for handling dogs and cats. It contains the struct definitions for \code{Dog} and \code{Cat}, as well as the \code{sound} function that returns the sound made by each animal.
+
+Now create a file called \code{mainprogram.stanza} containing
+\code{
+defpackage animal-main :
+   import core
+
+defn main () :
+   val d = Dog("Shadow")
+   val c = Cat("Sassy")
+   println("My dog %_ goes %_!" % [name(d), sound(d)])
+   println("My cat %_ goes %_!" % [name(c), sound(c)])
+   
+main()
+}
+The \code{animal-main} package contains the main code of the program and it will use the \code{animals} package as a library. 
+
+\subsection{Importing Packages}
+Now compile both of your source files by typing in the terminal
+\code{
+stanza animals.stanza mainprogram.stanza -o animals
+}
+Oops! Something's wrong! Stanza reports these errors.
+\code{
+mainprogram.stanza:5.11: Could not resolve Dog.
+mainprogram.stanza:6.11: Could not resolve Cat.
+mainprogram.stanza:7.44: Could not resolve sound.
+mainprogram.stanza:8.44: Could not resolve sound.
+}
+
+The problem is that our \code{animal-main} package never \italic{imported} the \code{animals} package. Packages must be imported before they can be used. So change
+\code{
+defpackage animal-main :
+   import core
+}
+to
+\code{
+defpackage animal-main :
+   import core
+   import animals
+}
+and try compiling again. Stanza \italic{still} reports the same errors.
+\code{
+mainprogram.stanza:5.11: Could not resolve Dog.
+mainprogram.stanza:6.11: Could not resolve Cat.
+mainprogram.stanza:7.44: Could not resolve sound.
+mainprogram.stanza:8.44: Could not resolve sound.
+}
+
+\subsection{Public Visibility}
+What's going on? The problem now is that our \code{animals} package did not make any of its definitions \italic{public}. By default, definitions are not visible from outside the package it is declared in. To make a definition visible, you must prefix the definition with the \code{public} keyword. 
+
+Let's declare our \code{Dog} and \code{Cat} structs, and the \code{sound} function to be publicly visible.
+\code{
+defpackage animals :
+   import core
+
+public defstruct Dog :
+   name: String
+public defstruct Cat :
+   name: String
+
+public defn sound (x:Dog|Cat) :
+   match(x) :
+      (x:Dog) : "woof"
+      (x:Cat) : "meow"
+}
+
+Now the program compiles successfully and prints out
+\code{
+My dog Shadow goes woof!
+My cat Sassy goes meow!
+}
+
+\subsection{Private Visibility}
+By default, all definitions are \italic{private} to the package that they are defined in. There is \italic{no} way to refer to a private definition from outside the package. This is a very powerful guarantee as it also means that there is no way for any outside code to depend upon the existence of a private definition. 
+
+For example, suppose we rely on a helper function called \code{dog?} to help us define the \code{sound} function. 
+\code{
+defpackage animals :
+   import core
+
+public defstruct Dog :
+   name: String
+public defstruct Cat :
+   name: String
+
+defn dog? (x:Dog|Cat) :
+   match(x) :
+      (x:Dog) : true
+      (x:Cat) : false
+
+public defn sound (x:Dog|Cat) :
+   if dog?(x) : "woof"
+   else : "meow"
+}
+\code{dog?} is private to the \code{animals} package, so at any time in the future, if we wanted to rename \code{dog?} or remove it, we can safely do so without affecting other code.
+
+\section{Function Overloading}
+By this point, we've learned about arrays, tuples, strings, and how to retrieve the length of each of them.
+\code{
+val a = Array<Int>(4)
+val b = "Timon and Pumbaa"
+val c = [1, 2, 3, 4]
+length(a) ;Retrieve length of a array
+length(b) ;Retrieve length of a string
+length(c) ;Retrieve length of a tuple
+}
+You simply call the \code{length} function. Here is what is happening behind the scenes. The \code{core} package actually contains \italic{many} functions called \code{length}, but they differ in the type of the argument that they accept. 
+\code{
+defn length (x:Array) -> Int
+defn length (x:String) -> Int
+defn length (x:Tuple) -> Int
+}
+When you call \code{length(a)}, Stanza automatically figures out which \code{length} function you are trying to call based on the type of its argument. \code{a} is an array, and so you're obviously trying to call the \code{length} function that accepts an \code{Array}. No other \code{length} function would be legal to call! Similarly, \code{b} is a string, so the call to \code{length(b)} is obviously a call to the \code{length} function that accepts a \code{String}. This is a feature called \italic{function overloading} and is a key part of Stanza's object system. 
+
+Functions can be overloaded based on the number of arguments that they take, and the types of each argument. Let's write our own overloaded function.
+\code{
+defstruct Dog
+defstruct Tree
+defstruct Captain
+
+defn bark (d:Dog) -> False :
+   println("Woof!")
+defn bark (t:Tree) -> String :
+   "Furrowed Cork"
+defn bark (c:Captain) -> False :
+   println("A teeeen-hut!")
+}
+Now let's try calling each of them. The following
+\code{
+val d = Dog()
+val t = Tree()
+val c = Captain()
+bark(d)
+println(bark(t))
+bark(c)
+}
+prints out
+\code{
+Woof!
+Furrowed Cork
+A teeeen-hut!
+}
+
+Notice that the \code{bark} function for \code{Tree} returns a \code{String}, while the \code{bark} functions for \code{Dog} and \code{Captain} return \code{False}. There is no requirement for any of the \code{bark} functions to be related or aware of each other. They can even be declared in separate packages! 
+
+\section{Operator Mapping}
+In the previous chapter, you were introduced to the basic arithmetic operators. Here we'll show you a bit about how they work underneath. The following
+\code{
+val a = 13
+val b = 24
+a + b
+a - b
+a * b
+a / b
+a % b
+(- a)
+}
+can be rewritten equivalently as
+\code{
+val a = 13
+val b = 24
+plus(a, b)
+minus(a, b)
+times(a, b)
+divide(a, b)
+modulo(a, b)
+negate(a)
+}
+Thus you can see here that all operators in Stanza are simply syntactic shorthands for specific function calls. Here is a listing of what each operator expands to.
+\code{
+a + b     expands to   plus(a, b)
+a - b     expands to   minus(a, b)
+a * b     expands to   times(a, b)
+a / b     expands to   divide(a, b)
+a % b     expands to   modulo(a, b)
+(- x)     expands to   negate(x)
+
+a << b    expands to   shift-left(a, b)
+a >> b    expands to   shift-right(a, b)
+a >>> b   expands to   arithmetic-shift-right(a, b)
+a & b     expands to   bit-and(a, b)
+a | b     expands to   bit-or(a, b)
+a ^ b     expands to   bit-xor(a, b)
+(~ x)     expands to   bit-not(x)
+
+a == b    expands to   equal?(a, b)
+a != b    expands to   not-equal?(a, b)
+a < b     expands to   less?(a, b)
+a <= b    expands to   less-eq?(a, b)
+a > b     expands to   greater?(a, b)
+a >= b    expands to   greater-eq?(a, b)
+not x     expands to   complement(x)
+}
+
+\subsection{Operator Overloading}
+The benefit to mapping each operator to a function call is that you can very easily reuse these operators for your own objects. Here is an example struct definition for modeling points on the cartesian plane.
+\code{
+defstruct Point :
+   x: Double
+   y: Double
+}
+
+Next let's define a function called \code{plus} that can add together two \code{Point} objects.
+\code{
+defn plus (a:Point, b:Point) :
+   Point(x(a) + x(b), y(a) + y(b))
+}
+
+Let's try out our function.
+\code{
+defn main () :
+   val a = plus(Point(1.0,3.0), Point(4.0,5.0))
+   val b = plus(a, Point(7.0,1.0))
+   println("b is (%_, %_)" % [x(b), y(b)])
+
+main()
+}
+The above prints out
+\code{
+b is (12.000000000000000, 9.000000000000000)
+}
+
+But, as mentioned, the \code{+} operator is a shorthand for calling the \code{plus} function. So our \code{main} function can be written more naturally as
+\code{
+defn main () :
+   val a = Point(1.0,3.0) + Point(4.0,5.0)
+   val b = a + Point(7.0,1.0)
+   println("b is (%_, %_)" % [x(b), y(b)])
+}
+
+\subsection{Get and Set}
+Two other operators that we have been using without being aware of it are the get and set operators. The following code
+\code{
+val a = Array<Int>(4)
+a[0] = 42
+a[0]
+}
+is equivalent to
+\code{
+val a = Array<Int>(4)
+set(a, 0, 42)
+get(a, 0)
+}
+
+Thus the \code{a[i]} form expands to calls to the \code{get} function.
+\code{
+a[i]         expands to   get(a, i)
+a[i, j]      expands to   get(a, i, j)
+a[i, j, k]   expands to   get(a, i, j, k)
+etc ...
+}
+And the \code{a[i] = v} form expands to calls to the \code{set} function.
+\code{
+a[i] = v         expands to   set(a, i, v)
+a[i, j] = v      expands to   set(a, i, j, v)
+a[i, j, k] = v   expands to   set(a, i, j, k, v)
+etc ...
+}
+
+\section{Vectors}
+So far we've only called the library functions in the \code{core} package. The \code{collections} package contains commonly used datastructures useful for daily programming.
+
+Here is a program that imports the \code{collections} package and creates and prints a \code{Vector} object.
+\code{
+defpackage mypackage :
+   import core
+   import collections
+
+defn main () :
+   val v = Vector<Int>()
+   add(v, 1)
+   add(v, 2)
+   add(v, 3)
+   println(v)
+
+main()
+}
+It prints out
+\code{
+[1 2 3]
+}
+
+A \code{Vector} object is similar to an array and represents a mutable collection of items where each item is associated with an integer index. However, whereas arrays are of fixed length, a vector can grow and shrink to accomodate more or less items. 
+
+The type of the \code{v} vector in the example above is 
+\code{
+Vector<Int>
+}
+indicating that it is a vector for storing integers.
+
+Here is how to add additional elements to the end of a vector.
+\code{
+add(v, 42)
+}
+
+Here is how to retrieve and remove the element at the end of the vector.
+\code{
+pop(v)
+}
+
+Identical to the case of arrays, here is how to retrieve the length of a vector, retrieve a value at a particular index, and assign a value to a particular index.
+\code{
+length(v) ;Retrieve a vector's length
+v[0] = 42 ;Assign a value to index 0
+v[0] ;Retrieve the value at index 0
+}
+
+\section{HashTables}
+Hash tables are another commonly used datastructure in the \code{collections} package. A table associates a value object with a particular key object. It can be imagined as a two-column table (hence the name) where the left column is named \italic{keys} and the right column is named \italic{values}. Each entry in the table is recorded as a new row. The key object is recorded in the keys column, and its corresponding value object is recorded in the values column.
+
+Here is how to create a HashTable where strings are used as keys, and integers are used as values.
+\code{
+val num-pets = HashTable<String,Int>()
+num-pets["Luca"] = 2
+num-pets["Patrick"] = 1
+num-pets["Emmy"] = 3
+println(num-pets)
+}
+The above prints out
+\code{
+["Patrick" => 1 "Luca" => 2 "Emmy" => 3]
+}
+
+\subsection{Creation}
+The function
+\code{
+HashTable<String,Int>()
+}
+creates a new hash table that associates integer values with string keys. The type of the table created by the above function is
+\code{
+HashTable<String,Int>
+}
+which indicates that it is a hash table whose keys have type \code{String} and whose values have type \code{Int}.
+
+\subsection{Set}
+The calls to \code{set}
+\code{
+num-pets["Luca"] = 2
+num-pets["Patrick"] = 1
+num-pets["Emmy"] = 3
+}
+associates the value 2 with the key "Luca" in the table, the value 1 with "Patrick", and the value 3 with "Emmy". 
+
+\subsection{Get}
+Here's how to retrieve the value associated with a key.
+\code{
+println("Emmy has %_ pets." % [num-pets["Emmy"]])
+}
+which prints out
+\code{
+Emmy has 3 pets.
+}
+
+\subsection{Does a Key Exist?}
+Attempting to retrieve the value in a table corresponding to a key that doesn't exist is a fatal error. Use the \code{key?} function to check whether a key exists in the table.
+\code{
+if key?(num-pets, "George") :
+   println("George has %_ pets." % [num-pets["George"]])
+else :
+   println("I don't know how many pets George has.")
+}
+
+\subsection{Default Values}
+A hash table can also be created with a \italic{default} value. If a hash table has a default value, then this default value is returned when retrieving the corresponding value for a key that does not exist in the table. Change the definition of num-pets to
+\code{
+val num-pets = HashTable<String,Int>(0)
+}
+Now when we retrieve the number of pets owned by George,
+\code{
+println("George has %_ pets." % [num-pets["George"]])
+}
+it prints out
+\code{
+George has 0 pets.
+}
+
+\section{KeyValue Pairs}
+A \code{KeyValue} object represents an association between a key object and a value object. It can be created using the \code{KeyValue} function.
+\code{
+val kv = KeyValue(4, "Hello")
+}
+creates a \code{KeyValue} object that represents the mapping from the key \code{4} to the value \code{"Hello"}. This is done very commonly, so Stanza also provides a convenient operator. The above can be written equivalently as
+\code{
+val kv = 4 => "Hello"
+}
+
+The type of the \code{kv} object created above is
+\code{
+KeyValue<Int,String>
+}
+which indicates that it represents an association between a key of type \code{Int} and a value of type \code{String}.
+
+The key and the value objects in a \code{KeyValue} object can be retrieved using the \code{key} and \code{value} functions respectively.
+\code{
+key(kv) ;Retrieve the key
+value(kv) ;Retrieve the value
+}
+
+\section{For Loops over Sequences}
+Thus far you've only been shown how to use the for construct for simple counting loops. Here you'll see how the for construct generalizes to all types of collections.
+
+The for loop can be used to iterate directly through the items of an array like so.
+\code{
+val xs = Array<Int>(4)
+xs[0] = 2
+xs[1] = 42
+xs[2] = 7
+xs[3] = 1
+
+for x in xs do :
+   println(x)
+}
+which prints out
+\code{
+2
+42
+7
+1
+}
+
+\subsection{General Form}
+Here is the general form.
+\code{
+for x in xs do :
+   body
+}
+For each item in the \italic{collection} \code{xs}, the for loop executes \code{body} once with \code{x} bound to the next item in the collection. In our example, \code{xs} contains the numbers \code{2}, \code{42}, \code{7}, and \code{1}, and thus \code{body} is executed once each with \code{x} bound to \code{2}, \code{42}, \code{7}, and finally \code{1}. 
+
+\subsection{Examples of Collections}
+We will more precisely specify what constitutes a \italic{collection} later. For now, just accept that arrays, vectors, and tuples are collections, and strings are collections of characters. For example,
+\code{
+for c in "Timon" do :
+   print("Next char is ")
+   println(c)
+}
+prints out
+\code{
+Next char is T
+Next char is i
+Next char is m
+Next char is o
+Next char is n
+}
+
+And similarly,
+\code{
+for x in [1, 3, "Timon"] do :
+   print("Next item is ")
+   println(x)
+}
+prints out
+\code{
+Next item is 1
+Next item is 3
+Next item is Timon
+}
+
+In fact, \code{Range} objects are collections of integers, so the counting loops we saw before are actually just a special case of iterating through the items in a \code{Range}. 
+\code{
+val r = 0 to 4
+for x in r do :
+   print("Next number is ")
+   println(x)
+}
+prints out
+\code{
+Next number is 0
+Next number is 1
+Next number is 2
+Next number is 3
+}
+
+Tables are also collections, but they are collections of \code{KeyValue} objects, each representing one of the entries in the table. The following
+\code{
+val num-pets = HashTable<String,Int>()
+num-pets["Luca"] = 2
+num-pets["Patrick"] = 1
+num-pets["Emmy"] = 3
+
+for entry in num-pets do :
+   println("%_ has %_ pets." % [key(entry), value(entry)])
+}
+prints out
+\code{
+Patrick has 1 pets.
+Luca has 2 pets.
+Emmy has 3 pets.
+}
+
+As you can see, Stanza's for construct is extremely powerful. In truth, the form shown here is \italic{still} not the most general form of the for construct. We'll learn about that after we've covered first class functions.
+
+\section{Extended Example: Complex Number Package}
+In this extended example, we will implement a package for creating and performing arithmetic with complex numbers. 
+
+\subsection{The Complex Package}
+Create a file called \code{complex.stanza} with the following content.
+\code{
+defpackage complex :
+   import core
+
+public defstruct Cplx :
+   real: Double
+   imag: Double
+}
+This struct will be our representation for complex numbers. It is stored in cartesian form and has real and imaginary components. 
+
+\subsection{Printing Complex Numbers}
+To be able to print \code{Cplx} objects, we provide a custom print method.
+\code{
+defmethod print (o:OutputStream, x:Cplx) :
+   if imag(x) >= 0.0 :
+      print(o, "%_ + %_i" % [real(x), imag(x)])
+   else :
+      print(o, "%_ - %_i" % [real(x), (- imag(x))])
+}
+
+\subsection{Main Driver}
+To test our program thus far, create a file called \code{complexmain.stanza} with the following content.
+\code{
+defpackage complex/main :
+   import core
+   import complex
+
+defn main () :
+   val a = Cplx(1.0, 5.0)
+   val b = Cplx(3.0, -4.0)
+   println(a)
+   println(b)
+
+main()
+}
+
+Compile and run the program by typing the following in the terminal.
+\code{
+stanza complex.stanza complexmain.stanza -o cplx
+./cplx
+}
+It should print out
+\code{
+1.000000000000000 + 5.000000000000000i
+3.000000000000000 - 4.000000000000000i
+}
+
+Great! So now we can create and print out complex numbers. If you're an electrical engineer, you may substitute \code{i} for \code{j} in the \code{print} method.
+
+ \subsection{Arithmetic Operations}
+The next step is to implement the standard arithmetic operations for complex numbers. Pull out your old algebra textbooks and look up the formulas. Or pick up a pencil and derive them yourself. 
+\code{
+public defn plus (a:Cplx, b:Cplx) :
+   Cplx(real(a) + real(b), imag(a) + imag(b))
+
+public defn minus (a:Cplx, b:Cplx) :
+   Cplx(real(a) - real(b), imag(a) - imag(b))
+
+public defn times (a:Cplx, b:Cplx) :
+   val x = real(a)
+   val y = imag(a)
+   val u = real(b)
+   val v = imag(b)
+   Cplx(x * u - y * v, x * v + y * u)
+
+public defn divide (a:Cplx, b:Cplx) :
+   val x = real(a)
+   val y = imag(a)
+   val u = real(b)
+   val v = imag(b)
+   val den = u * u + v * v
+   Cplx((x * u + y * v) / den, (y * u - x * v) / den)
+}
+
+Let's test out our operators.
+\code{
+defn main () :
+   val a = Cplx(1.0, 5.0)
+   val b = Cplx(3.0, -4.0)
+   println("(%_) + (%_) = %_" % [a, b, a + b])
+   println("(%_) - (%_) = %_" % [a, b, a - b])
+   println("(%_) * (%_) = %_" % [a, b, a * b])
+   println("(%_) / (%_) = %_" % [a, b, a / b])
+
+main()
+}
+The program prints out
+\code{
+(1.000000000000000 + 5.000000000000000i) + (3.000000000000000 - 4.000000000000000i)
+    = 4.000000000000000 + 1.000000000000000i
+(1.000000000000000 + 5.000000000000000i) - (3.000000000000000 - 4.000000000000000i)
+    = -2.000000000000000 + 9.000000000000000i
+(1.000000000000000 + 5.000000000000000i) * (3.000000000000000 - 4.000000000000000i)
+    = 23.000000000000000 + 11.000000000000000i
+(1.000000000000000 + 5.000000000000000i) / (3.000000000000000 - 4.000000000000000i)
+    = -0.680000000000000 + 0.760000000000000i
+}
+which looks right to me!
+
+\subsection{Root Finding}
+Armed with our new complex number package, let's now put it to good use and solve an equation. We will use the Newton-Raphson method to solve the following equation.
+\code{
+x ^ 3 - 1 = 0
+}
+
+Here is our numerical solver which takes an initial guess, \code{x0}, and the number of iterations, \code{num-iter}, and performs \code{num-iter} number of Newton-Raphson iterations to find the root of the equation.
+\code{
+defn newton-raphson (x0:Cplx, num-iter:Int) :
+   var xn = x0
+   for i in 0 to num-iter do :
+      xn = xn - (xn * xn * xn - Cplx(1.0,0.0)) / (Cplx(3.0,0.0) * xn * xn)
+   xn   
+}
+
+Let's test it!
+\code{
+defn main () :
+   println(newton-raphson(Cplx(1.0,1.0), 100))
+}
+The program prints out
+\code{
+1.000000000000000 + 0.000000000000000i
+}
+which is indeed one of the solutions to the equation! Fantastic!
+
+\subsection{Find all the Roots!}
+But according to the Fundamental Theorem of Algebra, the equation should have two more solutions. Different initial guesses will converge to different solutions so let's try a whole bunch of different guesses and try to find them all.
+
+Here is a function that takes in a tuple of initial guesses and tries them all.
+\code{
+defn guess (xs:Tuple<Cplx>) :
+   for x in xs do :
+      val r = newton-raphson(x, 100)
+      println("Initial guess %_ gave us solution %_." % [x, r])
+}
+
+And let's call it with a bunch of random guesses.
+\code{
+defn main () :
+   guess([Cplx(1.0,1.0), Cplx(2.0,2.0), Cplx(-1.0,3.0), Cplx(-1.0,-1.0)])
+}
+
+The program prints out
+\code{
+Initial guess 1.000000000000000 + 1.000000000000000i gave 
+   us solution 1.000000000000000 + 0.000000000000000i.
+Initial guess 2.000000000000000 + 2.000000000000000i gave 
+   us solution 1.000000000000000 + 0.000000000000000i.
+Initial guess -1.000000000000000 + 3.000000000000000i gave 
+   us solution -0.500000000000000 + 0.866025403784439i.
+Initial guess -1.000000000000000 - 1.000000000000000i gave 
+   us solution -0.500000000000000 - 0.866025403784439i.
+}
+
+Thus the three solutions to the equation are \code{1}, \code{-0.5 + 0.866i}, and \code{-0.5 - 0.866i}. Problem solved!

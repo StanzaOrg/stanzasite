@@ -1,0 +1,498 @@
+defpackage stanza-site :
+  import core
+  import collections
+  import webgen
+
+#use-added-syntax(webgen)
+
+;============================================================
+;================ Paragraph Functions =======================
+;============================================================
+
+defn paragraph-functions () :
+ [webfn \<P>\paragraphs{\text}<P> (text) :
+    expand(expand-paragraphs(text, List()))
+  webfn \<P>\paragraphs[\headers]{\text}<P> (headers text) :
+    expand(expand-paragraphs(text, exp-binders(headers)))]
+
+defn expand-paragraphs (es:ExpList, headers:Collection<Symbol>) -> ExpList :
+  defn not-newline? (e:Exp) :
+    match(e) :
+      (e:CharExp) : char(e) != '\n'
+      (e) : true
+  defn whitespace? (es:ExpList) :
+    for e in es all? :
+      match(e:CharExp) : char(e) == ' '
+  defn wrap? (es:ExpList) :
+    for e in es any? :
+      match(e:CharExp) : char(e) != ' '
+  defn header? (es:ExpList) :
+    if length(es) == 1 :
+      match(head(es)) :
+        (e:CommExp) : contains?(headers,name(e))
+        (e) : false
+      
+  val s = to-seq(es)
+  val es* = repeat-while $ fn () :
+    if empty?(s) :
+      None()
+    else :
+      val r = One(to-exp-list(take-while(not-newline?, s)))
+      next(s) when not empty?(s)
+      r
+
+  var preceding-header = false
+  for e in es* seq-append :
+    if whitespace?(e) :
+      ExpList()
+    else if wrap?(e) :
+      preceding-header = false
+      substitute(#PAT: \<P>\paragraph{\text}<P>, [
+        `text => e])
+    else if header?(e) :
+      val insert-paragraph? = preceding-header
+      preceding-header = true
+      if insert-paragraph? :
+        substitute(#PAT: \<P>\paragraph{}\e<P>, [
+          `e => e])
+      else : e
+    else :
+      preceding-header = false
+      e
+
+;============================================================
+;==================== Anchor Generation =====================
+;============================================================
+
+defn gen-anchor-function () :  
+  webfn \<P>\genanchor{\body}<P> (body) :
+    val anchor = "anchor%_" % [genid()]
+    web-let :
+      sub-function(`anchor, anchor)
+    in: expand(body)
+
+;============================================================
+;==================== Section Bar ===========================
+;============================================================
+
+defstruct SectionBar :
+  weight: ExpList
+  anchor: ExpList
+  name: ExpList
+
+defn scan-sections-function (sections:Vector<SectionBar>) :
+  webfn \<P>\sectionbar[\w](\a){\t}<P> (w a t) :
+    add(sections,SectionBar(w,a,t))
+    ExpList()
+
+defn sections-function (sbar:Vector<SectionBar>) :
+  webfn \<P>\sections{\body}<P> (body) :
+    for s in sbar seq-append :
+      web-let :
+        sub-function(`anchor, anchor(s))
+        sub-function(`name, name(s))
+        sub-function(`weight, weight(s))
+      in: expand(body)
+
+;============================================================
+;==================== Navigation Bar ========================
+;============================================================
+
+defstruct NavBar :
+  name: String
+  url: String
+
+defn navbar (pages:Collection<Page>) :
+  to-tuple $ for p in pages seq? :
+    match(name(p)) :
+      (name:String) :
+        val url = "%_.html" % [filename(p) - ".gen"]
+        One(NavBar(name, to-string(url)))
+      (name:False) : None()
+
+defn navbar-function (active-page:String|False, navbar:Collection<NavBar>) :
+  webfn \<P>\navbar{\text}<P> (text) :
+    for p in navbar seq-append :
+      web-let :
+        sub-function(`name, name(p))
+        sub-function(`url, url(p))
+        bool-functions(`active, active-page == name(p))
+      in: expand(text)
+
+;============================================================
+;===================== Scan Pages ===========================
+;============================================================
+
+defstruct Page :
+  name: String|False
+  filename: String
+  page-style: String
+  body-style: String
+
+defn scan-page-function (pages:Vector<Page>) :
+  webfn \<P>\pages{\body}<P> (body) :
+    web-let :
+      webfn \<P>\page(\pagestyle,\bodystyle)[\name]{\filename}<P> (pagestyle bodystyle name filename) :
+        val p = Page(exp-string(name), exp-string(filename), exp-string(pagestyle), exp-string(bodystyle))
+        add(pages, p)
+        ExpList()
+      webfn \<P>\page(\pagestyle,\bodystyle){\filename}<P> (pagestyle bodystyle filename) :
+        val p = Page(false, exp-string(filename), exp-string(pagestyle), exp-string(bodystyle))
+        add(pages, p)
+        ExpList()
+    in: scan-unrecognized-commands(expand-level(body))
+
+;============================================================
+;====================== Scan Styles =========================
+;============================================================
+
+defstruct Style :
+  name: String
+  binder: Symbol
+  body: ExpList
+
+defn scan-style-function (styles:Vector<Style>) :
+  webfn \<P>\style[\name](\binder){\body}<P> (name, binder, body) :
+    add(styles, Style(exp-string(name), exp-binder(binder), body))
+    ExpList()
+
+;============================================================
+;===================== Scan Book ============================
+;============================================================
+defstruct Book :
+  index: Index
+  chapters: Collection<Chapter>
+defstruct Index :
+  filename: String
+  page-style: String
+  body-style: String
+defstruct Chapter :
+  filename: String
+  page-style: String
+  body-style: String
+  name: ExpList
+  description: ExpList
+  sections: Collection<Section>
+  body: ExpList
+defstruct Section :
+  anchor: String
+  name: ExpList
+
+defn scan-chapter-function (chapters:Vector<Chapter>) :
+  webfn \<P>\chapter(\pagestyle,\bodystyle){\filename}<P> (pagestyle bodystyle filename) :
+    val body = parse-file(to-string("src/%_" % [exp-string(filename)]))
+    var chapter-name = false
+    var chapter-description = false
+    val sections = Vector<Section>()
+    web-let :
+      webfn "\\chapter{\\title}{\n\\description\n}" (title description) :
+        chapter-name = title
+        chapter-description = description
+        substitute(#PAT: \<P>\chapter{\title}<P>, [`title => title])
+      webfn \<P>\section{\title}<P> (title) :
+        val anchor = to-string("anchor%_" % [genid()])
+        add(sections, Section(anchor, title))
+        substitute(#PAT: \<P>\section[\anchor]{\title}<P>, [
+          `anchor => anchor
+          `title => title])
+    in:
+      val body* = expand(body)
+      throw(WebgenException("No chapter command found.")) when chapter-name is False
+      add(chapters, Chapter(exp-string(filename), exp-string(pagestyle), exp-string(bodystyle),
+                      chapter-name as ExpList, chapter-description as ExpList,
+                      sections, body*))
+      ExpList()
+
+defn scan-book-function (set-book: Book -> False) :
+  var index = false
+  val chapters = Vector<Chapter>()
+  webfn \<P>\book{\text}<P> (text) :
+    web-let :
+      webfn \<P>\index(\pagestyle,\bodystyle){\filename}<P> (pagestyle bodystyle filename) :
+        index = Index(exp-string(filename), exp-string(pagestyle), exp-string(bodystyle))
+        ExpList()
+      scan-chapter-function(chapters)
+    in:
+      scan-unrecognized-commands(expand-level(text))
+      throw(WebgenException("No index file found.")) when index is False
+      set-book(Book(index as Index, chapters))
+      ExpList()
+
+;============================================================
+;================== Table of Contents =======================
+;============================================================
+
+defn pagename (c:Chapter) :
+  to-string("%_.html" % [filename(c) - ".gen"])
+
+;Table of Contents
+defn sections-function (c:Chapter) :
+  val sections = sections(c)
+  val link-name = pagename(c)
+  webfn \<P>\sections{\body}<P> (body) :
+    for s in sections seq-append :
+      web-let :
+        sub-function(`url, "%_#%_" % [link-name, anchor(s)])
+        sub-function(`title, name(s))
+      in: expand(body)    
+
+defn chapters-function (book:Book) :  
+  webfn \<P>\chapters{\body}<P> (body) :
+    for c in chapters(book) seq-append :
+      val link-name = pagename(c)
+      web-let :
+        sub-function(`title, name(c))
+        sub-function(`description, description(c))
+        sub-function(`url, link-name)
+        sections-function(c)
+      in: expand(body)
+
+;============================================================
+;=================== Apply Style ============================
+;============================================================
+
+defn apply (styles:Collection<Style>, style:String, form:ExpList) :
+  match(find({name(_) == style}, styles)) :
+    (s:Style) :
+      substitute(body(s), [binder(s) => form])
+    (s:False) :
+      throw(WebgenException("No style called %_." % [style]))
+  
+
+;============================================================
+;===================== Utilities ============================
+;============================================================
+
+defn minus (a:String, b:String) :
+  if suffix?(a, b) :
+    a[0 to length(a) - length(b)]
+  else : throw(WebgenException("String %~ does not end with %~." % [a, b]))
+
+defn scan-unrecognized-commands (es:ExpList) :
+  match(es) :
+    (es:AppendList) :
+      scan-unrecognized-commands(a(es))
+      scan-unrecognized-commands(b(es))
+    (es:CharList) :
+      false
+    (es) :
+      val cs = 
+        for e in filter-by<CommExp>(es) seq :
+          "\n  Command %_" % [e]
+      if not empty?(cs) :
+        throw(WebgenException("Unrecognized commands:%*" % [cs]))
+  ExpList()
+
+;============================================================
+;====================== BookPDF =============================
+;============================================================
+
+defstruct BookPDF :
+  foreword: Symbol
+  binder: Symbol
+  styles: HashTable<String,String>
+  content: ExpList
+
+defn scan-bookpdf-function (set-bookpdf: BookPDF -> False) :
+  val styles-table = HashTable<String,String>()
+  webfn \<P>\bookpdf(\foreword, \binder){\styles}{\content}<P> (foreword, binder, styles, content) :
+    ;Scan styles
+    web-let :
+      webfn \<P>\style(\olds => \news)<P> (olds, news) :
+        styles-table[exp-string(olds)] = exp-string(news)
+        ExpList()
+    in: scan-unrecognized-commands(expand-level(styles))
+    ;Set bookpdf
+    set-bookpdf $ BookPDF(exp-binder(foreword), exp-binder(binder), styles-table, content)
+    ExpList()
+
+defn style (b:BookPDF, name:String) :
+  get?(styles(b), name, name)
+
+defn pdf-form (b:BookPDF, prelude:ExpList, body:ExpList) :
+  substitute(content(b), [foreword(b) => prelude, binder(b) => body])
+
+;============================================================
+;====================== Job =================================
+;============================================================
+
+defstruct GenJob :
+  generate-site?: True|False
+  generate-book?: True|False
+  generate-pdf?: True|False
+  generate-articles?: True|False
+
+defn parse-job () :
+  val flags = tail(to-list(seq(to-symbol, command-line-arguments())))
+  if flags == `(all) :
+    GenJob(true, true, true, true)
+  else :
+    val accepted = `(site, book, pdf, articles)
+    for flag in flags do :
+      if not contains?(accepted, flag) :
+        throw(WebgenException("Job %_ not recognized." % [flag]))
+    GenJob(
+      contains?(flags, `site)
+      contains?(flags, `book)
+      contains?(flags, `pdf)
+      contains?(flags, `articles))
+
+;============================================================
+;================== Site Generation =========================
+;============================================================
+
+defn gensite () :
+  val job = parse-job()
+  
+  val pages = Vector<Page>()
+  val styles = Vector<Style>()
+  var book
+  var bookpdf = false
+  
+  defn parse-template () :
+    val body = parse-file("src/template.gen")
+    var book? = false    
+    web-let :
+      scan-book-function({book? = _})
+      scan-bookpdf-function({bookpdf = _})
+      scan-style-function(styles)
+      scan-page-function(pages)
+    in:
+      scan-unrecognized-commands(expand-level(body))
+      throw(WebgenException("No book form found.")) when book? is False
+      book = book? as Book      
+  parse-template()
+
+  ;Compute the navigation bar
+  val navbar = navbar(pages)
+
+  ;Base Environment
+  val base-functions = [
+    chapters-function(book)
+    gen-anchor-function()
+    scan-item-functions()
+    paragraph-functions()
+    let-functions()
+  ]
+
+  ;Create the site page
+  defn site-page (name:String|False, style:String, body:ExpList, navbar:Collection<NavBar>) :
+    ;Collect section bar
+    val sbar = Vector<SectionBar>()
+    var expanded:ExpList =
+      web-let :
+        scan-sections-function(sbar)
+      in: expand(body)
+    ;Apply style
+    expanded = apply(styles, style, expanded)
+    ;Expand with necessary functions
+    web-let :
+      sections-function(sbar)
+      navbar-function(name, navbar)
+      base-functions      
+    in:
+      expand(expanded)
+  defn site-page (name:String|False, style:String, body:ExpList) :
+    site-page(name, style, body, navbar)
+
+  ;Pre expansion
+  defn preexpand (body:ExpList, online?:True|False) :
+    web-let :
+      let-functions()
+      bool-functions(`ifonline, online?)
+    in: expand(body)
+
+  ;Retrieve the site body
+  defn site-body (page:Page) :
+    var body:ExpList = parse-file $ to-string $ "src/%_" % [filename(page)]
+    body = preexpand(body, true)
+    body = apply(styles, body-style(page), body)
+    web-let :
+      base-functions
+    in: expand(body)
+
+  ;Retrieve the chapter body
+  defn chapter-body (c:Chapter) :
+    var body:ExpList = body(c)
+    body = preexpand(body, true)
+    body = apply(styles, body-style(c), body)    
+    web-let :
+      base-functions
+    in: expand(body)
+
+  ;Retrieve the index body
+  defn index-body (i:Index) :
+    var body:ExpList = parse-file $ to-string $ "src/%_" % [filename(i)]
+    body = preexpand(body,true)
+    body = apply(styles, body-style(i), body)
+    web-let :
+      base-functions
+    in: expand(body)
+
+  ;Write out file
+  defn write-html (filename:String, body:ExpList) :
+    val out = to-string("generated/%_.html" % [filename - ".gen"])
+    println("Generating %_" % [out])
+    with-output-file(FileOutputStream(out), fn () :
+      print-expressions(expand-html(body)))
+  
+  ;Generate pages
+  for page in pages do :
+    val gen-page? = match(name(page)) :
+                      (name:String) : generate-site?(job)
+                      (name:False) : generate-articles?(job)
+    if gen-page? :
+      val form = site-page(name(page), page-style(page), site-body(page))
+      write-html(filename(page), form)
+
+  ;Generate book
+  if generate-book?(job) :
+    ;Generate chapters
+    defn nav-chapters (b:Book) :
+      val [cs0, cs1, cs2] = fork(chapters(b), 3) as [Seq<Chapter>, Seq<Chapter>, Seq<Chapter>]
+      next(cs2) when not empty?(cs2)
+      zip(cat([false], cs0), cs1, cat(cs2, [false]))
+    for [pc, c, nc] in nav-chapters(book) do :
+      defn navbar? (name:String, c:Chapter|False) :
+        match(c:Chapter) : List(NavBar(name, pagename(c)))
+        else : List()
+      val navbar = append-all $ [
+        List(NavBar("Home", "index.html"))
+        List(NavBar("Table of Contents", "stanzabyexample.html"))
+        navbar?("Previous Chapter", pc)
+        navbar?("Next Chapter", nc)]
+      val form = site-page(false, page-style(c), chapter-body(c), navbar)
+      write-html(filename(c), form)
+
+    ;Generate index
+    val idx = index(book)
+    val form = site-page(false, page-style(idx), index-body(idx))
+    write-html(filename(idx), form)
+
+  ;Generate PDF
+  if generate-pdf?(job) :
+    val bookpdf = bookpdf as BookPDF
+    val index-body = let :
+      val i = index(book)
+      var body:ExpList = parse-file $ to-string $ "src/%_" % [filename(i)]
+      body = preexpand(body,false)
+      body = apply(styles, style(bookpdf, body-style(i)), body)
+      web-let :
+        base-functions
+      in: expand(body)
+    val chapter-bodies = to-list $
+      for c in chapters(book) seq :
+        var body:ExpList = body(c)
+        body = preexpand(body,false)
+        body = apply(styles, style(bookpdf, body-style(c)), body)
+        web-let :
+          base-functions
+        in: expand(body)
+    val body = reduce(append, ExpList(),
+                 join(chapter-bodies, CharList("\n\n")))
+    println("Generating stanzabyexample.pdf")
+    val form = pdf-form(bookpdf, index-body, body)
+    with-output-file(FileOutputStream("book/stanzabyexample.tex"), fn () :
+      print-latex(form))
+  
+gensite()

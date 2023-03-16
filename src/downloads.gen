@@ -1,0 +1,340 @@
+\let{
+
+\def[\stanza(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
+\header{Macintosh}
+\aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+
+\header{Linux}
+\aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+
+\header{Windows}
+\aT[href="resources/stanza/wstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+
+Note that Stanza for Windows requires installing the support library  \aT[href="https://sourceforge.net/projects/mingw-w64/"]{MinGW-w64}.
+}
+
+\def[\exstanza(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
+\subheader{Macintosh}
+\aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+
+\subheader{Linux}
+\aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+
+\subheader{Windows}
+\aT[href="resources/stanza/wstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+}
+
+\def[\oldexstanza_w(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
+Stanza \X.\Y.\Z  (\Date): \aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Linux}, \aT[href="resources/stanza/wstanza_\X _\Y _\Z.zip"]{Windows}
+}
+
+\def[\oldexstanza(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
+Stanza \X.\Y.\Z  (\Date): \aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Linux}
+}
+
+\def[\oldstanza(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
+Stanza \X.\Y.\Z  (\Date): \aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Linux}, \aT[href="resources/stanza/wstanza_\X _\Y _\Z.zip"]{Windows}
+}
+
+}\in{
+
+The L.B. Stanza compiler is currently available for x64-based systems on Linux, Macintosh, and Windows platforms. We are working hard to release Stanza for 32-bit systems, and ARM processors.
+
+For step-by-step installation instructions please see the \italic{Getting Started} chapter in \aT[href="stanzabyexample.html"]{Stanza By Example}.
+
+\header{Source Code}
+The entire Stanza repository is hosted on \aT[href="https://github.com/StanzaOrg/lbstanza"]{GitHub}. 
+
+\stanza(0.12.15){February 19, 2019}
+
+\header{Experimental Versions}
+\exstanza(0.18.7){March 13, 2023}
+\subheader{Older Versions}
+\oldexstanza_w(0.18.6){March 11, 2023}
+\oldexstanza_w(0.18.5){March 9, 2023}
+\oldexstanza_w(0.18.4){March 8, 2023}
+\oldexstanza_w(0.18.3){March 8, 2023}
+\oldexstanza_w(0.18.2){March 7, 2023}
+\oldexstanza_w(0.18.1){March 7, 2023}
+\oldexstanza_w(0.18.0){March 3, 2023}
+\oldexstanza_w(0.17.56){February 21, 2023}
+\oldexstanza_w(0.17.55){January 28, 2023}
+\oldexstanza_w(0.17.54){January 25, 2023}
+\oldexstanza_w(0.17.53){January 14, 2023}
+\oldexstanza_w(0.17.52){December 10, 2022}
+\oldexstanza_w(0.17.51){December 10, 2022}
+\oldexstanza_w(0.17.50){December 10, 2022}
+\oldexstanza_w(0.17.49){December 9, 2022}
+\oldexstanza_w(0.17.48){December 8, 2022}
+\oldexstanza_w(0.17.47){December 7, 2022}
+\oldexstanza_w(0.17.46){December 7, 2022}
+\oldexstanza_w(0.17.45){December 2, 2022}
+\oldexstanza_w(0.17.44){November 30, 2022}
+\oldexstanza_w(0.17.43){November 27, 2022}
+\oldexstanza_w(0.17.42){November 23, 2022}
+\oldexstanza_w(0.17.41){November 16, 2022}
+\oldexstanza_w(0.17.40){November 14, 2022}
+\oldexstanza_w(0.17.39){November 13, 2022}
+\oldexstanza_w(0.17.38){November 13, 2022}
+\oldexstanza_w(0.17.37){November 8, 2022}
+\oldexstanza_w(0.17.36){November 5, 2022}
+\oldexstanza_w(0.17.35){October 31, 2022}
+\oldexstanza_w(0.17.34){October 30, 2022}
+\oldexstanza_w(0.17.33){October 28, 2022}
+\oldexstanza_w(0.17.32){October 19, 2022}
+\oldexstanza_w(0.17.31){October 19, 2022}
+\oldexstanza_w(0.17.30){October 16, 2022}
+\oldexstanza_w(0.17.29){October 15, 2022}
+\oldexstanza_w(0.17.28){October 13, 2022}
+\oldexstanza_w(0.17.27){October 12, 2022}
+\oldexstanza_w(0.17.26){October 11, 2022}
+\oldexstanza_w(0.17.25){October 9, 2022}
+\oldexstanza_w(0.17.24){October 7, 2022}
+\oldexstanza_w(0.17.23){October 6, 2022}
+\oldexstanza_w(0.17.22){September 27, 2022}
+\oldexstanza_w(0.17.21){September 7, 2022}
+\oldexstanza_w(0.17.20){September 2, 2022}
+\oldexstanza_w(0.17.19){August 24, 2022}
+\oldexstanza_w(0.17.18){August 20, 2022}
+\oldexstanza_w(0.17.17){August 17, 2022}
+\oldexstanza_w(0.17.16){August 17, 2022}
+\oldexstanza_w(0.17.15){August 8, 2022}
+\oldexstanza_w(0.17.14){August 1, 2022}
+\oldexstanza_w(0.17.13){July 21, 2022}
+\oldexstanza_w(0.17.12){July 17, 2022}
+\oldexstanza_w(0.17.11){July 3, 2022}
+\oldexstanza_w(0.17.10){July 1, 2022}
+\oldexstanza_w(0.17.9){June 28, 2022}
+\oldexstanza_w(0.17.8){June 22, 2022}
+\oldexstanza_w(0.17.7){June 21, 2022}
+\oldexstanza_w(0.17.6){June 10, 2022}
+\oldexstanza_w(0.17.5){June 8, 2022}
+\oldexstanza_w(0.17.4){June 5, 2022}
+\oldexstanza_w(0.17.3){May 13, 2022}
+\oldexstanza_w(0.17.2){May 11, 2022}
+\oldexstanza_w(0.17.1){May 9, 2022}
+\oldexstanza_w(0.17.0){May 7, 2022}
+\oldexstanza_w(0.16.7){April 25, 2022}
+\oldexstanza_w(0.16.6){April 22, 2022}
+\oldexstanza_w(0.16.5){April 18, 2022}
+\oldexstanza_w(0.16.4){April 17, 2022}
+\oldexstanza_w(0.16.3){April 7, 2022}
+\oldexstanza_w(0.16.2){April 4, 2022}
+\oldexstanza_w(0.16.1){April 3, 2022}
+\oldexstanza_w(0.16.0){April 1, 2022}
+\oldexstanza_w(0.15.13){March 13, 2022}
+\oldexstanza_w(0.15.12){February 10, 2022}
+\oldexstanza_w(0.15.11){January 19, 2022}
+\oldexstanza_w(0.15.10){January 16, 2022}
+\oldexstanza_w(0.15.9){January 15, 2022}
+\oldexstanza_w(0.15.8){January 12, 2022}
+\oldexstanza_w(0.15.7){January 11, 2022}
+\oldexstanza_w(0.15.6){January 3, 2022}
+\oldexstanza_w(0.15.5){December 27, 2021}
+\oldexstanza_w(0.15.4){December 20, 2021}
+\oldexstanza_w(0.15.3){December 5, 2021}
+\oldexstanza_w(0.15.2){November 19, 2021}
+\oldexstanza_w(0.15.1){November 16, 2021}
+\oldexstanza_w(0.15.0){November 16, 2021}
+\oldexstanza_w(0.14.33){November 9, 2021}
+\oldexstanza_w(0.14.32){November 9, 2021}
+\oldexstanza_w(0.14.31){November 8, 2021}
+\oldexstanza_w(0.14.30){November 5, 2021}
+\oldexstanza_w(0.14.29){November 3, 2021}
+\oldexstanza_w(0.14.28){October 27, 2021}
+\oldexstanza_w(0.14.27){October 25, 2021}
+\oldexstanza_w(0.14.26){October 25, 2021}
+\oldexstanza_w(0.14.25){October 15, 2021}
+\oldexstanza_w(0.14.24){October 12, 2021}
+\oldexstanza_w(0.14.23){September 30, 2021}
+\oldexstanza_w(0.14.22){September 28, 2021}
+\oldexstanza_w(0.14.21){September 28, 2021}
+\oldexstanza_w(0.14.20){September 25, 2021}
+\oldexstanza_w(0.14.19){September 25, 2021}
+\oldexstanza_w(0.14.18){September 23, 2021}
+\oldexstanza_w(0.14.17){September 16, 2021}
+\oldexstanza_w(0.14.16){September 14, 2021}
+\oldexstanza_w(0.14.15){September 14, 2021}
+\oldexstanza_w(0.14.14){September 13, 2021}
+\oldexstanza_w(0.14.13){September 10, 2021}
+\oldexstanza_w(0.14.12){September 9, 2021}
+\oldexstanza_w(0.14.11){September 7, 2021}
+\oldexstanza_w(0.14.10){September 7, 2021}
+\oldexstanza(0.14.9){September 1, 2021}
+\oldexstanza(0.14.8){August 30, 2021}
+\oldexstanza(0.14.7){August 25, 2021}
+\oldexstanza(0.14.6){August 22, 2021}
+\oldexstanza(0.14.5){August 19, 2021}
+\oldexstanza(0.14.4){May 25, 2021}
+\oldexstanza(0.14.3){May 24, 2021}
+\oldexstanza(0.14.2){May 24, 2021}
+\oldexstanza(0.14.1){May 23, 2021}
+\oldexstanza(0.14.0){May 3, 2021}
+\oldexstanza(0.13.101){April 22, 2021}
+\oldexstanza(0.13.100){April 19, 2021}
+\oldexstanza(0.13.99){April 15, 2021}
+\oldexstanza(0.13.98){April 14, 2021}
+\oldexstanza(0.13.97){April 7, 2021}
+\oldexstanza(0.13.96){February 23, 2021}
+\oldexstanza(0.13.95){February 18, 2021}
+\oldexstanza(0.13.94){February 11, 2021}
+\oldexstanza(0.13.93){February 3, 2021}
+\oldexstanza(0.13.92){January 28, 2021}
+\oldexstanza(0.13.91){January 26, 2021}
+\oldexstanza(0.13.90){January 22, 2021}
+\oldexstanza(0.13.89){January 22, 2021}
+\oldexstanza(0.13.88){January 20, 2021}
+\oldexstanza(0.13.87){January 8, 2021}
+\oldexstanza(0.13.86){December 21, 2020}
+\oldexstanza(0.13.85){December 18, 2020}
+\oldexstanza(0.13.84){December 17, 2020}
+\oldexstanza(0.13.83){December 17, 2020}
+\oldexstanza(0.13.82){December 15, 2020}
+\oldexstanza(0.13.81){December 14, 2020}
+\oldexstanza(0.13.80){November 6, 2020}
+\oldexstanza(0.13.79){October 7, 2020}
+\oldexstanza(0.13.78){October 6, 2020}
+\oldexstanza(0.13.77){September 23, 2020}
+\oldexstanza(0.13.76){September 21, 2020}
+\oldexstanza(0.13.75){September 21, 2020}
+\oldexstanza(0.13.74){September 17, 2020}
+\oldexstanza(0.13.73){September 15, 2020}
+\oldexstanza(0.13.72){September 14, 2020}
+\oldexstanza(0.13.71){September 11, 2020}
+\oldexstanza(0.13.70){August 28, 2020}
+\oldexstanza(0.13.69){August 17, 2020}
+\oldexstanza(0.13.68){August 14, 2020}
+\oldexstanza(0.13.67){July 9, 2020}
+\oldexstanza(0.13.66){July 7, 2020}
+\oldexstanza(0.13.65){July 5, 2020}
+\oldexstanza(0.13.64){June 19, 2020}
+\oldexstanza(0.13.63){June 9, 2020}
+\oldexstanza(0.13.62){June 3, 2020}
+\oldexstanza(0.13.61){May 15, 2020}
+\oldexstanza(0.13.60){May 14, 2020}
+\oldexstanza(0.13.59){May 12, 2020}
+\oldexstanza(0.13.58){May 6, 2020}
+\oldexstanza(0.13.57){April 20, 2020}
+\oldexstanza(0.13.56){March 24, 2020}
+\oldexstanza(0.13.55){March 12, 2020}
+\oldexstanza(0.13.54){February 28, 2020}
+\oldexstanza(0.13.53){February 26, 2020}
+\oldexstanza(0.13.52){February 26, 2020}
+\oldexstanza(0.13.51){February 25, 2020}
+\oldexstanza(0.13.50){February 24, 2020}
+\oldexstanza(0.13.49){February 24, 2020}
+\oldexstanza(0.13.48){February 8, 2020}
+\oldexstanza(0.13.47){February 6, 2020}
+\oldexstanza(0.13.46){February 6, 2020}
+\oldexstanza(0.13.45){February 4, 2020}
+\oldexstanza(0.13.44){December 28, 2019}
+\oldexstanza(0.13.43){December 28, 2019}
+\oldexstanza(0.13.42){December 20, 2019}
+\oldexstanza(0.13.41){December 17, 2019}
+\oldexstanza(0.13.40){December 16, 2019}
+\oldexstanza(0.13.39){December 10, 2019}
+\oldexstanza(0.13.38){December 10, 2019}
+\oldexstanza(0.13.37){December 10, 2019}
+\oldexstanza(0.13.36){December 9, 2019}
+\oldexstanza(0.13.35){December 8, 2019}
+\oldexstanza(0.13.34){December 5, 2019}
+\oldexstanza(0.13.33){December 4, 2019}
+\oldexstanza(0.13.32){December 3, 2019}
+\oldexstanza(0.13.31){December 2, 2019}
+\oldexstanza(0.13.30){November 30, 2019}
+\oldexstanza(0.13.29){November 13, 2019}
+\oldexstanza(0.13.28){November 8, 2019}
+\oldexstanza(0.13.27){October 29, 2019}
+\oldexstanza(0.13.26){October 18, 2019}
+\oldexstanza(0.13.25){October 17, 2019}
+\oldexstanza(0.13.24){September 25, 2019}
+\oldexstanza(0.13.23){September 3, 2019}
+\oldexstanza(0.13.22){August 29, 2019}
+\oldexstanza(0.13.21){August 14, 2019}
+\oldexstanza(0.13.20){July 21, 2019}
+\oldexstanza(0.13.19){July 11, 2019}
+\oldexstanza(0.13.18){July 6, 2019}
+\oldexstanza(0.13.17){July 5, 2019}
+\oldexstanza(0.13.16){July 3, 2019}
+\oldexstanza(0.13.15){June 24, 2019}
+\oldexstanza(0.13.14){June 4, 2019}
+\oldexstanza(0.13.13){June 4, 2019}
+\oldexstanza(0.13.12){June 3, 2019}
+\oldexstanza(0.13.11){June 1, 2019}
+\oldexstanza(0.13.10){June 1, 2019}
+\oldexstanza(0.13.9){May 28, 2019}
+\oldexstanza(0.13.8){May 28, 2019}
+\oldexstanza(0.13.7){May 23, 2019}
+\oldexstanza(0.13.6){May 20, 2019}
+\oldexstanza(0.13.5){May 13, 2019}
+\oldexstanza(0.13.4){May 8, 2019}
+\oldexstanza(0.13.3){May 2, 2019}
+\oldexstanza(0.13.2){May 1, 2019}
+\oldexstanza(0.13.1){May 1, 2019}
+\oldexstanza(0.13.0){April 30, 2019}
+
+\header{Older Versions}
+\oldstanza(0.12.14){October 16, 2018}
+\oldstanza(0.12.13){August 17, 2018}
+\oldstanza(0.12.12){August 11, 2018}
+\oldstanza(0.12.11){July 2, 2018}
+\oldstanza(0.12.10){June 19, 2018}
+\oldstanza(0.12.9){June 13, 2018}
+\oldstanza(0.12.8){February 13, 2018}
+\oldstanza(0.12.7){February 12, 2018}
+\oldstanza(0.12.6){January 30, 2018}
+\oldstanza(0.12.5){January 29, 2018}
+\oldstanza(0.12.4){January 22, 2018}
+\oldstanza(0.12.3){January 15, 2018}
+\oldstanza(0.12.2){January 10, 2018}
+\oldstanza(0.12.1){January 9, 2018}
+\oldstanza(0.12.0){December 20, 2017}
+\oldstanza(0.11.35){December 1, 2017}
+\oldstanza(0.11.34){November 23, 2017}
+\oldstanza(0.11.33){November 14, 2017}
+\oldstanza(0.11.32){November 1, 2017}
+\oldstanza(0.11.31){October 31, 2017}
+\oldstanza(0.11.30){October 5, 2017}
+\oldstanza(0.11.29){October 5, 2017}
+\oldstanza(0.11.28){October 2, 2017}
+\oldstanza(0.11.27){September 29, 2017}
+\oldstanza(0.11.26){September 24, 2017}
+\oldstanza(0.11.25){September 7, 2017}
+\oldstanza(0.11.24){August 24, 2017}
+\oldstanza(0.11.23){August 22, 2017}
+\oldstanza(0.11.22){August 11, 2017}
+\oldstanza(0.11.21){August 1, 2017}
+\oldstanza(0.11.20){July 31, 2017}
+\oldstanza(0.11.19){July 28, 2017}
+\oldstanza(0.11.18){July 25, 2017}
+\oldstanza(0.11.17){July 13, 2017}
+\oldstanza(0.11.16){June 12, 2017}
+\oldstanza(0.11.15){June 2, 2017}
+\oldstanza(0.11.14){May 30, 2017}
+\oldstanza(0.11.13){May 19, 2017}
+\oldstanza(0.11.12){May 18, 2017}
+\oldstanza(0.11.11){May 17, 2017}
+\oldstanza(0.11.10){April 29, 2017}
+\oldstanza(0.11.9){April 23, 2017}
+\oldstanza(0.11.8){March 30, 2017}
+\oldstanza(0.11.7){January 19, 2017}
+\oldstanza(0.11.6){January 18, 2017}
+\oldstanza(0.11.5){January 14, 2017}
+\oldstanza(0.11.4){January 3, 2017}
+\oldstanza(0.11.3){December 31, 2016}
+\oldstanza(0.11.2){December 20, 2016}
+\oldstanza(0.11.1){December 13, 2016}
+\oldstanza(0.11.0){December 9, 2016}
+\oldstanza(0.10.9){November 3, 2016}
+\oldstanza(0.10.8){August 28, 2016}
+\oldstanza(0.10.7){July 25, 2016}
+\oldstanza(0.10.6){July 22, 2016}
+\oldstanza(0.10.5){July 18, 2016}
+\oldstanza(0.10.4){July 18, 2016}
+\oldstanza(0.10.3){July 15, 2016}
+\oldstanza(0.10.2){July 8, 2016}
+\oldstanza(0.10.1){July 6, 2016}
+\oldstanza(0.10.0){July 4, 2016}
+\oldstanza(0.9.6){June 18, 2016}
+
+}

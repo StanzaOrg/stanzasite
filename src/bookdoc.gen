@@ -1,0 +1,96 @@
+============================================================
+================ Import Basic Definitions ==================
+============================================================
+
+\read(../webgen/core.gen)
+
+\defn[\escape_tex{\Text}]{
+  \locals[\a \b]{
+  \defv[\a]{\Text}
+  \defv[\b]{
+    \defn[#]{\escape_hash}
+    \defn[$]{\escape_dollar}
+  }\in{\a}
+  \defv[\escaped]{
+    \defn[\escape_hash]{\%\#}
+    \defn[\escape_dollar]{\%\$}
+  }\in{\b}}
+}\in{\escaped}
+
+\defn[\bookbody{\Body}]{
+  ===== SECTION DEFINITIONS =====
+  \defn[\chapter{\Title}{\Description}]{\{#\chapter{\#Title}#}}
+  \defn[\section{\Title}]{\{#\section{\#Title}#}}
+  \defn[\subsection{\Title}]{\{#\subsection*{\#Title}#}}
+
+  ===== ITALIC =====
+  \defn[\italic{\ItalicBody}]{\{#{\em \#ItalicBody}#}}
+
+  ==== LINKS ====
+  \defn[\aT[href=\Url]{\Description}]{\{#\href{\#Url}{\#Description}#}}
+
+  ==== LISTS ====
+  \defn[\list{\X}]{
+     \defn[\makeitem{\Y}]{\{#\item \#Y#}}
+     \defn[\item\ItemBody]{\makeitem{\ItemBody}}
+     \defn[\item\ItemBody\item]{\makeitem{\ItemBody}\item}
+     \defv[\body]{\X}
+  }\in{\{#\begin{enumerate}\#body\end{enumerate}#}}
+
+  ===== CODE DEFINITIONS =====
+  \defn[\code{\CodeBody}]{\{#\verb|\#CodeBody|#}}
+  \defn[\code{\%n\CodeBody\%n}]{\{#\begin{verbatim}#}\%n\CodeBody\%n\{#\end{verbatim}#}}
+}\in{\escape_tex{\Body}}
+
+\defn[\foreword{\Body}]{
+  ==== OMIT ====
+  \defn[\header{\Title}]{}
+  \defn[\quietsubheader{\Title}]{}
+  \defn[\pT{\Text}]{\%n\Text\%n}
+
+  ===== ITALIC =====
+  \defn[\italic{\ItalicBody}]{\{#{\em \#ItalicBody}#}}
+
+  ===== PARAGRAPH =====
+  \defn[\paragraph{   \Text}]{\%n\{#\vspace{10pt}\quad \#Text#}}
+
+  ===== ONLINE SWITCH =====
+  \defn[\ifonline{\Text}]{}
+
+  ==== TABLE OF CONTENTS ====
+  \defn[\table_of_contents]{\{#\tableofcontents#}}
+  
+}\in{\escape_tex{\Body}}
+
+\write[book/stanzabyexample.tex]{\{#
+\title{Stanza by Example}
+\author{Patrick S. Li}
+\documentclass[12pt,oneside]{book}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage[letterpaper, margin=1in]{geometry}
+\usepackage{fancyvrb}
+\begin{document}
+\raggedright
+\maketitle
+
+\chapter*{Foreword}
+\#foreword{#\#read(#src/stanzabyexample.gen#)#}
+\#bookbody{#\#read(#src/chapter1.gen#)#}
+\#bookbody{#\#read(#src/chapter2.gen#)#}
+\#bookbody{#\#read(#src/chapter3.gen#)#}
+\#bookbody{#\#read(#src/chapter4.gen#)#}
+\#bookbody{#\#read(#src/chapter5.gen#)#}
+\#bookbody{#\#read(#src/chapter6.gen#)#}
+\#bookbody{#\#read(#src/chapter7.gen#)#}
+\#bookbody{#\#read(#src/chapter8.gen#)#}
+\#bookbody{#\#read(#src/chapter9.gen#)#}
+\#bookbody{#\#read(#src/macrosystem.gen#)#}
+\#bookbody{#\#read(#src/chapter10.gen#)#}
+\#bookbody{#\#read(#src/chapter11.gen#)#}
+\#bookbody{#\#read(#src/appendix.gen#)#}
+
+\end{document}
+#}}

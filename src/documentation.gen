@@ -1,0 +1,21 @@
+\header{Stanza By Example}
+
+\aT[href="stanzabyexample.html"]{Stanza By Example} is an introductory step-by-step book for learning the Stanza programming language. 
+
+\header{Essays}
+
+\aT[href="purpose_of_programming_languages.html"]{"Stop Designing Languages. Write Libraries Instead."} - My rebuttal to a common opinion I hear about new programming languages and language research.
+
+\aT[href="optional_typing.html"]{The Design of Stanza's Optional Type System} - An article detailing the motivation and mechanics behind the design of Stanza's optional type system, and our experiences with using and teaching the system.
+
+\header{Tutorials}
+
+\aT[href="tetris.html"]{Tetris} - This is a tutorial teaching users to use LoStanza to interface with the QT GUI library to write a simple clone of the famous Tetris game. An offline version of this tutorial can be found \aT[href=resources/lbstanza_tetris.pdf]{here}.
+
+\header{Stanza Thesis}
+
+\aT[href=resources/patrickli_thesis_dec14.pdf]{"Design and Implementation of an Optionally-Typed Functional Programming Language"} - The Ph.D. thesis that documents the design rationale and implementation of Stanza.
+
+\header{Stanza Reference}
+
+An offline version of the Stanza reference pages has been compiled \aT[href=resources/lbstanza_reference.pdf]{here}. 

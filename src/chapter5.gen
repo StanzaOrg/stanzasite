@@ -1,0 +1,1128 @@
+\chapter{Programming with First-Class Functions}{
+This chapter teaches you how to use functions as values, which is one fundamental part of the functional programming paradigm.
+}
+Stanza fully supports and encourages functional programming, however "Functional Programming" is intentionally not the title of this chapter. In the community, the term functional programming has been used to refer to two different concepts. The first is the concept of programming with \italic{first-class} functions, where functions themselves are passed as arguments and stored in datastructures. This is the subject of this chapter. 
+
+The second concept refers to a style of programming revolving around the mathematical definition of functions; so called \italic{pure} functions. A pure function is guaranteed to return the same result if called with the same arguments, and also not affect the environment in any way (e.g. by printing to the terminal). This style of programming is largely an exercise in manipulating immutable datastructures. It is also a powerful paradigm and will be the subject of a later chapter. 
+
+\section{Nested Functions}
+As a gentle introduction to first-class functions we will start with \italic{nested} functions. We hope the concept will seem straightforward, and then later we'll reveal that they are actually quite sophisticated underneath.
+
+Here is a function that sorts an array of integers in increasing order.
+\code{
+defn selection-sort (xs:Array<Int>) :
+   val n = length(xs)
+   for i in 0 to (n - 1) do :
+      var min-idx = i
+      var min-val = xs[i]
+      for j in (i + 1) to n do :
+         if xs[j] < min-val :
+            min-idx = j
+            min-val = xs[j]
+      if i != min-idx :
+         xs[min-idx] = xs[i]
+         xs[i] = min-val
+}
+Let's try it out on an array of random numbers.
+\code{
+defn main () :
+   val xs = Array<Int>(10)
+   xs[0] = 510
+   xs[1] = 923
+   xs[2] = 671
+   xs[3] = 811
+   xs[4] = -129
+   xs[5] = -581
+   xs[6] = 233
+   xs[7] = -791
+   xs[8] = 899
+   xs[9] = 313
+
+   selection-sort(xs)
+   println(xs)
+
+main()
+}
+It should print out
+\code{
+[-791 -581 -129 233 313 510 671 811 899 923]
+}
+
+By reading through the algorithm, you can see that the larger problem of sorting the array is actually composed of a number of smaller subproblems. For example, the lines
+\code{
+var min-idx = i
+var min-val = xs[i]
+for j in (i + 1) to n do :
+   if xs[j] < min-val :
+      min-idx = j
+      min-val = xs[j]
+}
+compute the index of the minimum element between index \code{i + 1} and index \code{n}. The lines
+\code{
+if i != min-idx :
+   xs[min-idx] = xs[i]
+   xs[i] = min-val
+}
+swaps the element at index \code{i} with the element at index \code{min-idx}. \code{selection-sort} is short enough that we can still understand the main algorithm even without explicitly dividing the problem into smaller ones. But as programs get larger, the ability to break up a larger problem into smaller ones is very important. Nested functions gives us a lot of power for doing this. 
+
+Let's define a \italic{nested} function, \code{index-of-min}, that takes two indices \code{start} and \code{end}, and returns the index of the minimum element between indices \code{start} (inclusive) and \code{end} (exclusive).
+\code{
+defn index-of-min (start:Int, end:Int) :
+   var min-idx = start
+   var min-val = xs[start]
+   for i in (start + 1) to end do :
+      if xs[i] < min-val :
+         min-idx = i
+         min-val = xs[i]
+   min-idx      
+}
+
+Let's define another nested function, \code{swap}, that swaps the element in index \code{i} with the element in index \code{j}. 
+\code{
+defn swap (i:Int, j:Int) :
+   if i != j :
+      val xs-i = xs[i]
+      val xs-j = xs[j]
+      xs[i] = xs-j
+      xs[j] = xs-i
+}
+
+And now let's clean up our \code{selection-sort} function using these nested functions.
+\code{
+defn selection-sort (xs:Array<Int>) :
+   defn index-of-min (start:Int, end:Int) :
+      var min-idx = start
+      var min-val = xs[start]
+      for i in (start + 1) to end do :
+         if xs[i] < min-val :
+            min-idx = i
+            min-val = xs[i]
+      min-idx
+
+   defn swap (i:Int, j:Int) :
+      if i != j :
+         val xs-i = xs[i]
+         val xs-j = xs[j]
+         xs[i] = xs-j
+         xs[j] = xs-i
+   
+   val n = length(xs)
+   for i in 0 to (n - 1) do :
+      swap(i, index-of-min(i, n))
+}
+The code is slightly longer than before, but the \italic{overall} algorithm is \italic{much} clearer now. 
+\code{
+for i in 0 to (n - 1) do :
+   swap(i, index-of-min(i, n))
+}
+In English, it says: iterate with index \code{i} starting from 0 and proceeding to the end of the array, and swap the element at \code{i} with the minimum element in the rest of the array. 
+
+Notice that the nested functions \code{index-of-min} and \code{swap} are not merely functions declared within the body of \code{selection-sort}. If you tried to declare them as top-level functions, the program would give you this error when you try to compile it,
+\code{
+Could not resolve xs.
+}
+indicating that \code{xs} is not in scope and is not visible to \code{index-of-min} or \code{swap}. Part of the power of nested functions rests in them being able to refer to values defined in the function they're nested in.
+
+\subsection{Example: Permutations}
+Here is another example of using nested functions to greatly simplify code. The \code{permutations} function accepts an array of strings and prints out all possible permutations of its contents. 
+\code{
+defn permutations (xs:Array<String>) :
+   val n = length(xs)
+   
+   defn swap (i:Int, j:Int) :
+      if i != j :
+         val xi = xs[i]
+         val xj = xs[j]
+         xs[i] = xj
+         xs[j] = xi
+      
+   defn permute (i:Int) :
+      if i < n - 1 :
+         for j in i to n do :
+            swap(i, j)
+            permute(i + 1)
+            swap(i, j)
+      else :
+         println(xs)
+
+   permute(0)
+}
+It internally relies upon the nested functions \code{swap} and \code{permute}. 
+
+Let's try it out with these strings.
+\code{
+defn main () :
+   val xs = to-array<String>(["All" "Dogs" "Are" "Awesome"])
+   permutations(xs)
+
+main()
+}
+
+When compiled and ran, it prints out
+\code{
+["All" "Dogs" "Are" "Awesome"]
+["All" "Dogs" "Awesome" "Are"]
+["All" "Are" "Dogs" "Awesome"]
+["All" "Are" "Awesome" "Dogs"]
+["All" "Awesome" "Are" "Dogs"]
+["All" "Awesome" "Dogs" "Are"]
+["Dogs" "All" "Are" "Awesome"]
+["Dogs" "All" "Awesome" "Are"]
+["Dogs" "Are" "All" "Awesome"]
+["Dogs" "Are" "Awesome" "All"]
+["Dogs" "Awesome" "Are" "All"]
+["Dogs" "Awesome" "All" "Are"]
+["Are" "Dogs" "All" "Awesome"]
+["Are" "Dogs" "Awesome" "All"]
+["Are" "All" "Dogs" "Awesome"]
+["Are" "All" "Awesome" "Dogs"]
+["Are" "Awesome" "All" "Dogs"]
+["Are" "Awesome" "Dogs" "All"]
+["Awesome" "Dogs" "Are" "All"]
+["Awesome" "Dogs" "All" "Are"]
+["Awesome" "Are" "Dogs" "All"]
+["Awesome" "Are" "All" "Dogs"]
+["Awesome" "All" "Are" "Dogs"]
+["Awesome" "All" "Dogs" "Are"]
+}
+
+As an exercise, try writing a function called \code{combinations} that prints out all \italic{combinations} of an array of strings instead of all \italic{permutations}. 
+
+\section{Functions as Arguments}
+The \code{selection-sort} function in the previous example sorted the array in increasing order. But there are many ways to sort an array of integers. The following \code{sort-by-abs} function sorts the array by their \italic{absolute} values. 
+\code{
+defn sort-by-abs (xs:Array<Int>) :
+   defn index-of-min (start:Int, end:Int) :
+      var min-idx = start
+      var min-val = xs[start]
+      for i in (start + 1) to end do :
+         if abs(xs[i]) < abs(min-val) :
+            min-idx = i
+            min-val = xs[i]
+      min-idx
+
+   defn swap (i:Int, j:Int) :
+      if i != j :
+         val xs-i = xs[i]
+         val xs-j = xs[j]
+         xs[i] = xs-j
+         xs[j] = xs-i
+   
+   val n = length(xs)
+   for i in 0 to (n - 1) do :
+      swap(i, index-of-min(i, n))
+}
+If you replace the call to \code{selection-sort} in the \code{main} function with \code{sort-by-abs} then it now prints out
+\code{
+[-129 233 313 510 -581 671 -791 811 899 923]
+}
+
+Here is yet another way of sorting an array. The following \code{sort-by-sum-of-digits} function sorts the array by the total sum of their individual digits.
+\code{
+defn sum-of-digits (n:Int) :
+   if n == 0 : 0
+   else if n < 0 : sum-of-digits((- n))
+   else : (n % 10) + sum-of-digits(n / 10)
+
+defn sort-by-sum-of-digits (xs:Array<Int>) :
+   defn index-of-min (start:Int, end:Int) :
+      var min-idx = start
+      var min-val = xs[start]
+      for i in (start + 1) to end do :
+         if sum-of-digits(xs[i]) < sum-of-digits(min-val) :
+            min-idx = i
+            min-val = xs[i]
+      min-idx
+
+   defn swap (i:Int, j:Int) :
+      if i != j :
+         val xs-i = xs[i]
+         val xs-j = xs[j]
+         xs[i] = xs-j
+         xs[j] = xs-i
+   
+   val n = length(xs)
+   for i in 0 to (n - 1) do :
+      swap(i, index-of-min(i, n))
+}
+Replacing the call to \code{selection-sort} with \code{sort-by-sum-of-digits} prints out
+\code{
+[510 313 233 811 -129 671 -581 923 -791 899]
+}
+
+You'll have noticed by now that the implementation of each sorting function is almost entirely identical except for one line. Here are the three different comparison functions.
+\code{
+;Compare value directly
+xs[i] < min-val
+
+;Compare absolute values
+abs(xs[i]) < abs(min-val)
+
+;Compare the sum of their digits
+sum-of-digits(xs[i]) < sum-of-digits(min-val)
+}
+Couldn't we somehow write a general sort function and give it a specific way to compare things? We can! And the solution is to accept a \italic{key} function that, for each item in the array, computes the value you wish to sort by.
+
+Here is the general sorting function, \code{sort-by}, that accepts a key function \code{key}.
+\code{
+defn sort-by (key:Int -> Int, xs:Array<Int>) :
+   defn index-of-min (start:Int, end:Int) :
+      var min-idx = start
+      var min-val = xs[start]
+      for i in (start + 1) to end do :
+         if key(xs[i]) < key(min-val) :
+            min-idx = i
+            min-val = xs[i]
+      min-idx
+
+   defn swap (i:Int, j:Int) :
+      if i != j :
+         val xs-i = xs[i]
+         val xs-j = xs[j]
+         xs[i] = xs-j
+         xs[j] = xs-i
+   
+   val n = length(xs)
+   for i in 0 to (n - 1) do :
+      swap(i, index-of-min(i, n))
+}
+Notice especially the type of the \code{key} argument.
+\code{
+Int -> Int
+}
+This says that \code{key} is a \italic{function} that accepts a single argument, an \code{Int}, and returns an \code{Int}.
+
+We can update our \code{main} function to sort the array in three different ways by using three different key functions.
+\code{
+defn identity (x:Int) : x
+   
+defn main () :
+   val xs = Array<Int>(10)
+   xs[0] = 510
+   xs[1] = 923
+   xs[2] = 671
+   xs[3] = 811
+   xs[4] = -129
+   xs[5] = -581
+   xs[6] = 233
+   xs[7] = -791
+   xs[8] = 899
+   xs[9] = 313
+
+   println("Sort by value directly.")
+   sort-by(identity, xs)
+   println(xs)
+
+   println("Sort by absolute value.")
+   sort-by(abs, xs)
+   println(xs)
+
+   println("Sort by sum of digits.")
+   sort-by(sum-of-digits, xs)
+   println(xs)
+   
+main()
+}
+
+Compiling and running the program prints out
+\code{
+Sort by value directly.
+[-791 -581 -129 233 313 510 671 811 899 923]
+Sort by absolute value.
+[-129 233 313 510 -581 671 -791 811 899 923]
+Sort by sum of digits.
+[510 313 233 811 -129 671 -581 923 -791 899]
+} 
+
+Up until now, we have always referred to a function in \italic{function call position}. For example,
+\code{
+abs( ... )
+sum-of-digits( ... )
+}
+But now you see that you can actually refer to functions directly as values to be passed to other functions!
+\code{
+sort-by(abs, xs)
+sort-by(sum-of-digits, xs)
+}
+
+Functions that take functions as arguments are called \italic{higher-order functions}. They are an \italic{extremely} powerful programming technique, and you'll soon see that you've already been using them everywhere without knowing it. 
+
+\section{Functions as Return Values}
+When a language has \italic{first-class} functions, it means that functions can be treated as values. In the previous section we saw how to pass functions as arguments. Now we'll see how to use functions as return values.
+
+Here's a function called \code{digit} that accepts a single argument \code{n}, and returns a \italic{function}. What the \italic{returned} function does is extract and return the \code{n}'th significant digit from its argument.
+\code{
+defn digit (n:Int) -> (Int -> Int) :
+   defn extract-digit (x:Int, n:Int) :
+      if x < 0 : extract-digit((- x), n)
+      else if n == 0 : x % 10
+      else : extract-digit(x / 10, n - 1)
+   defn extract-digit-n (x:Int) :
+      extract-digit(x, n)
+   extract-digit-n
+}
+Let's try it out on some numbers.
+\code{
+defn main () :
+   val first-digit = digit(0)
+   val third-digit = digit(2)
+
+   defn test-first-digit (x:Int) :
+      println("The first digit of %_ is %_." % [x, first-digit(x)])
+   test-first-digit(413)
+   test-first-digit(-313)
+   test-first-digit(41)
+   test-first-digit(137)
+   test-first-digit(991)
+
+   defn test-third-digit (x:Int) :
+      println("The third digit of %_ is %_." % [x, third-digit(x)])
+   test-third-digit(413)
+   test-third-digit(-313)
+   test-third-digit(41)
+   test-third-digit(137)
+   test-third-digit(991)
+
+main()   
+}
+Compiling and running the program prints out
+\code{
+The first digit of 413 is 3.
+The first digit of -313 is 3.
+The first digit of 41 is 1.
+The first digit of 137 is 7.
+The first digit of 991 is 1.
+The third digit of 413 is 4.
+The third digit of -313 is 3.
+The third digit of 41 is 0.
+The third digit of 137 is 1.
+The third digit of 991 is 9.
+}
+
+The type signature of \code{digit} is daunting at first. 
+\code{
+defn digit (n:Int) -> (Int -> Int)
+}
+Let's decipher it piece by piece. \code{digit} is a function that takes a single \code{Int} argument, and returns a \code{(Int -> Int)}. And we learned previously that a \code{(Int -> Int)} is a one argument function that takes an \code{Int} and returns an \code{Int}. The parentheses around \code{Int -> Int} is not strictly necessary as \code{->} is a right-associative operator. Thus, \code{digit} can also be declared the following way.
+\code{
+defn digit (n:Int) -> Int -> Int
+}
+Write it in the way that is most clear to you. As an exercise, think about what the type of \code{digit} is. 
+
+\subsection{Sorting By Digit}
+Now that we have a function for creating functions that are compatible with what is expected by \code{sort-by}, let's use \code{sort-by} to sort by different digits. Update the \code{main} function in our previous example.
+\code{
+defn main () :
+   val xs = Array<Int>(10)
+   xs[0] = 510
+   xs[1] = 923
+   xs[2] = 671
+   xs[3] = 811
+   xs[4] = -129
+   xs[5] = -581
+   xs[6] = 233
+   xs[7] = -791
+   xs[8] = 899
+   xs[9] = 313
+
+   println("Sort by value directly.")
+   sort-by(identity, xs)
+   println(xs)
+
+   println("Sort by absolute value.")
+   sort-by(abs, xs)
+   println(xs)
+
+   println("Sort by sum of digits.")
+   sort-by(sum-of-digits, xs)
+   println(xs)
+
+   println("Sort by first digit.")
+   sort-by(digit(0), xs)
+   println(xs)
+
+   println("Sort by second digit.")
+   sort-by(digit(1), xs)
+   println(xs)
+
+   println("Sort by third digit.")
+   sort-by(digit(2), xs)
+   println(xs)   
+}
+Compile and run the program. It should print out
+\code{
+Sort by value directly.
+[-791 -581 -129 233 313 510 671 811 899 923]
+Sort by absolute value.
+[-129 233 313 510 -581 671 -791 811 899 923]
+Sort by sum of digits.
+[510 313 233 811 -129 671 -581 923 -791 899]
+Sort by first digit.
+[510 811 671 -581 -791 233 313 923 -129 899]
+Sort by second digit.
+[510 811 313 923 -129 233 671 -581 -791 899]
+Sort by third digit.
+[-129 233 313 510 -581 671 -791 811 899 923]
+}
+
+Isn't that elegant! This is but a small demonstration of the power of first-class functions.  
+
+\section{Core Library Functions}
+The \code{sort-by} function is so general and useful that you might wonder whether it's already included in Stanza's core library. And it is, along with many other useful higher order functions. We'll show you a few of them here.
+
+\subsection{qsort!}
+The \code{qsort!} function is Stanza's included sorting function. It implements the quick sort algorithm, and you can use it sort collections in much the same way that you used the \code{sort-by} function. One big difference, though, is that \code{qsort!} works on many different kinds of objects whereas your \code{sort-by} function only worked on \code{Int} objects. 
+\code{
+val xs = Vector<String>()
+add(xs, "Patrick")
+add(xs, "Luca")
+add(xs, "Emmy")
+add(xs, "Sunny")
+add(xs, "Whiskey")
+add(xs, "Rummy")
+qsort!(xs)
+println(xs)
+}
+The above is an example of sorting a vector of strings, and it prints out
+\code{
+["Emmy" "Luca" "Patrick" "Rummy" "Sunny" "Whiskey"]
+}
+
+\code{qsort!} can optionally take a key function as its first argument for computing the item with which to sort. Here's how to sort the \code{xs} vector by the second letter.
+\code{
+defn second-letter (s:String) : s[1]
+qsort!(second-letter, xs)
+println(xs)
+}
+Running the program prints out
+\code{
+["Patrick" "Whiskey" "Emmy" "Rummy" "Luca" "Sunny"]
+}
+
+The third form of \code{qsort!} takes, as its second argument, a \italic{comparison} function with which to sort by. The comparison function is given two items from the collection and must return \code{true} if the first argument is less than the second argument, or \code{false} otherwise. 
+
+Here is an example of sorting a vector containing both integers and strings. Integers are less than other integers if their numeric value is smaller. Strings are compared against other strings according to their lexicographic order. And integers are less than strings if the integer is less than the length of the string.
+\code{
+val xs = Vector<Int|String>()
+add(xs, 1)
+add(xs, 3)
+add(xs, "A")
+add(xs, "B")
+add(xs, 4)
+add(xs, -10)
+add(xs, "Timon")
+add(xs, "Pumbaa")
+add(xs, 42)
+
+defn compare-items (a:Int|String, b:Int|String) :
+   match(a, b) :
+      (a:Int, b:Int) : a < b
+      (a:Int, b:String) : a < length(b)
+      (a:String, b:Int) : length(a) < b
+      (a:String, b:String) : a < b
+qsort!(xs, compare-items)
+println(xs)
+}
+Running the program prints out
+\code{
+[-10 1 "A" "B" 3 4 "Pumbaa" "Timon" 42]
+}
+
+\subsection{find}
+The \code{find} function looks for the first item in a collection that satisfies a condition. The condition is given as a function, and takes a single argument representing an item from the collection. The condition function must return \code{true} if the item satisfies the condition, or \code{false} otherwise. \code{find} returns the item if it is found, or \code{false} otherwise. 
+
+Here is an example of looking for the first capitalized word in a vector of strings.
+\code{
+val xs = Vector<String>()
+add(xs, "they")
+add(xs, "call")
+add(xs, "me")
+add(xs, "Mr")
+add(xs, "Pig")
+
+defn capitalized? (x:String) : upper-case?(x[0])
+println(find(capitalized?, xs))
+}
+Running the program prints out
+\code{
+Mr
+}
+
+\subsection{index-when}
+The \code{index-when} function is similar to \code{find}, and looks for the first item in a collection that satisfies a condition. The difference is if the item is found, then \code{index-when} returns its \italic{index}. 
+
+Calling \code{index-when} instead of \code{find} on the previous example
+\code{
+println(index-when(capitalized?, xs))
+}
+prints out
+\code{
+3
+}
+
+\subsection{Maybe Objects and first}
+A \code{Maybe} is used to indicate the presence or absence of an object. A \code{None} object is a subtype of \code{Maybe} and indicates there is no object. A \code{One} object is a subtype of \code{Maybe} and contains a wrapped object. You can retrieve the wrapped object in a \code{One} object using the \code{value} function.
+
+The \code{first} function takes an argument function, \code{f}, and a collection \code{xs}, and calls \code{f} repeatedly on each item in the collection. \code{f} must return a \code{Maybe} object. \code{first} returns the first \code{One} object that is returned by \code{f}, or a \code{None} object if no call to \code{f} returns a \code{One} object.
+
+Here is an example of using first to find the first even sum of digits in a vector of integers.
+\code{
+val xs = Vector<Int>()
+add(xs, 14)
+add(xs, 78)
+add(xs, 232)
+add(xs, 787)
+add(xs, 49)
+
+defn even-sum? (x:Int) :
+   val s = sum-of-digits(x)
+   if s % 2 == 0 : One(s)
+   else : None()
+match(first(even-sum?, xs)) :
+   (x:One<Int>) :
+      println("The first even sum of digits is %_." % [value(x)])
+   (x:None) :
+      println("No number in xs has an even sum of digits.")
+}
+
+\subsection{map!}
+The \code{map!} function takes a function \code{f} and an array (or vector) \code{xs}. It then iterates through the array and replaces each item in the array with a call to \code{f} on the item. 
+
+Here is how to capitalize each entry in a vector of strings using \code{map!}.
+\code{
+val xs = Vector<String>()
+add(xs, "they")
+add(xs, "call")
+add(xs, "me")
+add(xs, "Mr")
+add(xs, "Pig")   
+
+defn capitalize (x:String) :
+   append(upper-case(x[0 to 1]), x[1 to false])
+map!(capitalize, xs)
+println(xs)
+}
+When ran, it prints out
+\code{
+["They" "Call" "Me" "Mr" "Pig"]
+}
+
+\subsection{all?, any?, none?}
+\code{all?} is used to determine whether \italic{every} item in a collection satisfies some condition. The \code{all?} function takes a function \code{f} and a collection \code{xs}. It returns \code{true} if calling \code{f} on every item in \code{xs} returns \code{true}. If \code{f} returns \code{false} on any item then \code{all?} immediately returns \code{false}. 
+
+Here is how we can use \code{all?} to test whether all numbers in \code{xs} are positive.
+\code{
+val xs = Vector<Int>()
+add(xs, 4)
+add(xs, 2)
+add(xs, 3)
+add(xs, -8)
+add(xs, 5)
+
+defn positive? (x:Int) : x > 0
+all?(positive?, xs)
+}
+
+The \code{any?} and \code{none?} functions work similarly. \code{any?} determines whether \italic{any} item satisfies the condition, and \code{none?} determines whether \italic{no} item satisfies the condition.
+
+\subsection{do}
+Finally we get to the \italic{most} commonly used higher order function of them all: the \code{do} function. The \code{do} function takes a function \code{f} and a collection \code{xs} and calls \code{f} on each item in the collection.
+
+Here is how to report the lengths of every string in a vector using \code{do}. 
+\code{
+val xs = Vector<String>()
+add(xs, "they")
+add(xs, "call")
+add(xs, "me")
+add(xs, "Mr")
+add(xs, "Pig")
+
+defn report-length (x:String) :
+   println("%_ has length %_." % [x, length(x)])
+do(report-length, xs)
+}
+When ran, it prints out
+\code{
+they has length 4.
+call has length 4.
+me has length 2.
+Mr has length 2.
+Pig has length 3.
+}
+
+At this point, particularly precocious readers might start to suspect that they have already used \code{do} in their programs without knowing it.
+
+\section{Anonymous Functions}
+Before the introduction of higher-order functions it was natural for you to give every function in your program a name. After all, if a function has no name, then how would you call it? But after having been exposed to higher-order functions, you might now be wondering if it's possible to \italic{avoid} giving functions a name. A lot of functions are now only ever used once, and only as an argument to another higher-order function. 
+
+\italic{Anonymous functions} are functions without names. Here is \code{report-length} from the previous example written as an anonymous function.
+\code{
+fn (x:String) :
+   println("%_ has length %_." % [x, length(x)])
+}
+
+Here is an example of rewriting the \code{do} example using an anonymous function.
+\code{
+val xs = Vector<String>()
+add(xs, "they")
+add(xs, "call")
+add(xs, "me")
+add(xs, "Mr")
+add(xs, "Pig")
+do(fn (x:String) :
+      println("%_ has length %_." % [x, length(x)])
+   xs)
+}
+Notice how the \code{report-length} function is now directly created using \code{fn} and passed immediately as an argument to \code{do}. The arguments to higher-order functions are often very short and anonymous functions provides a convenient syntax for using them.
+
+\subsection{Bidirectional Type Inference}
+The type inference rules for anonymous functions are different than those for named functions. For a named function, if a type annotation is left off of an argument, then the argument is assumed to have the \code{?} type, and can accept anything. For an anonymous function, if a type annotation is left off of an argument, then the argument's type is inferred from the context in which the function is used. 
+
+Thus the call to \code{do} in the above example could be more concisely written as
+\code{
+do(fn (x) : println("%_ has length %_." % [x, length(x)])
+   xs)
+}
+From the context, the type of \code{xs} is \code{Vector<String>}, and since \code{do} calls the function on each item in \code{xs}, it is obvious that \code{x} must be of type \code{String}.
+
+Idiomatic Stanza code rarely contains type annotations for anonymous functions, and instead relies upon type inference. In certain circumstances, Stanza will be unable to infer the argument types, in which case you'll have to provide them explicitly.
+
+\subsection{Anonymous Function Shorthand}
+For \italic{extremely} short anonymous functions, Stanza provides a syntactic shorthand. The following function
+\code{
+fn (x) : x + 1
+}
+can be written equivalently as
+\code{\#{
+{_ + 1}
+\#}}
+
+As another example, the following function
+\code{
+fn (x, y) : x + 2 * y
+}
+can be written equivalently as
+\code{\#{
+{_ + 2 * _}
+\#}}
+
+The shorthand consists of surrounding the function body with the \code{\#{{}\#}} brackets, and using underscores to denote arguments. To create anonymous functions with explicit type annotations use the following form.
+\code{
+fn (x:Int, y:String) : x + length(y)
+}
+can be written equivalently as
+\code{\#{
+{_:Int + 2 * _:String}
+\#}}
+
+\subsection{Curried Function Shorthand}
+For \italic{extremely} short anonymous functions consisting of a single function call, Stanza provides another syntactic shorthand. The following function
+\code{
+fn (xs) : qsort!(abs, xs)
+}
+can be written equivalently as
+\code{\#{
+qsort!{abs, _}
+\#}}
+
+Similarly, to create anonymous functions with explicit type annotations use the following form.
+\code{
+fn (i:Int) : index-of-min(i, length(xs))
+}
+can be written equivalently as
+\code{\#{
+index-of-min{_:Int, length(xs)}
+\#}}
+
+\subsection{The Application Operator}
+With the introduction of anonymous functions, you'll find that you can implement lots of functionality using single lines of code. To help with this programming style, Stanza provides the \code{$} operator to help reduce the number of nested expressions. The expression
+\code{
+f $ x
+}
+is equivalent to 
+\code{
+f(x)
+}
+Thus the \code{$} operator is just a shorthand for function application. Notice, however, that with the \code{$} operator, the above expression did not require any parentheses. 
+
+There is a very common usage pattern involving both curried functions and the \code{$} operator. Here is what it looks like.
+\code{\#{
+f{x, _} $ y
+\#}}
+Let's remove the syntactic shorthands incrementally to figure out what the above means. First, we will write out the \code{$} operator in full.
+\code{\#{
+(f{x, _})(y)
+\#}}
+Next, we will write out the curried function in full.
+\code{
+(fn (a) : f(x, a))(y)
+}
+So the expression, when written in full, just creates an anonymous function and then immediately calls it with \code{y}. Calling the anonymous function is then equivalent to
+\code{
+f(x, y)
+}
+
+Thus the expression
+\code{\#{
+f{x, _} $ y
+\#}}
+is equivalent to
+\code{
+f(x, y)
+}
+You can think of the \code{$} operator as substituting the right hand side expression in for the underscores in the left hand side expression. 
+
+This usage pattern is often used to chain a long sequence of operations together.
+\code{\#{
+f{1, _} $
+   head $
+   g{2, _} $
+   xs[2]
+\#}}
+is a shorthand for writing
+\code{
+val result1 = xs[2]
+val result2 = g(2, result1)
+val result3 = head(result2)
+f(1, result3)
+}
+
+Here is a concrete example of an idiomatic usage of the \code{$} operator. In the demonstration of the \code{qsort!} operator, we explicitly created a \code{compare-items} function to pass into \code{qsort!}.
+\code{
+defn compare-items (a:Int|String, b:Int|String) :
+   match(a, b) :
+      (a:Int, b:Int) : a < b
+      (a:Int, b:String) : a < length(b)
+      (a:String, b:Int) : length(a) < b
+      (a:String, b:String) : a < b
+qsort!(xs, compare-items)
+}
+But here is another way it can be (and often is) written.
+\code{\#{
+qsort!{xs, _} $ fn (a, b) :
+   match(a, b) :
+      (a:Int, b:Int) : a < b
+      (a:Int, b:String) : a < length(b)
+      (a:String, b:Int) : length(a) < b
+      (a:String, b:String) : a < b   
+\#}}
+Since the types of the arguments of anonymous functions are inferred, there is also no need to provide explicit type annotations.
+
+\section{The For Construct}
+Now that you've been introduced to anonymous functions and higher-order functions, we are now ready to introduce the \italic{full} for construct. The expression
+\code{
+for x in xs do :
+   println(x)
+}
+is equivalent to
+\code{
+do(fn (x) :
+      println(x)
+   xs)   
+}
+As mentioned before, the for construct is not a looping mechanism. It is a syntactic shorthand for calling higher-order functions of a certain form. As explained earlier, the \code{do} function is what's responsible for looping over each element in \code{xs}. 
+
+The for construct can be called with multiple bindings as well.
+\code{
+for (x in xs, y in ys) do :
+   println(x + y)
+}
+is equivalent to
+\code{
+do(fn (x, y) :
+      println(x + y)
+   xs, ys)   
+}
+
+Thus, in general, the for construct expands to a call to a higher order function where the first argument is an anonymous function followed by n remaining arguments. The anonymous function must take n arguments, one for each of the remaining arguments.
+
+There are forms of the \code{do} function that accept multiple collections. The collections are iterated over in parallel, and iteration stops when it reaches the end of any one of them. The following example prints every item in a vector coupled with its index. 
+\code{
+val xs = Vector<String>()
+add(xs, "Patrick")
+add(xs, "Luca")
+add(xs, "Emmy")
+
+for (x in xs, i in 0 to false) do :
+   println("Element %_ is at index %_." % [x, i])
+}
+It prints out 
+\code{
+Element Patrick is at index 0.
+Element Luca is at index 1.
+Element Emmy is at index 2.
+}
+
+\subsection{Operating Functions}
+\code{find}, \code{all?}, \code{any?}, \code{none?}, and \code{index-when} also have multiple collection versions that can be used with a for construct with multiple bindings.
+
+Functions like \code{do}, with type signatures compatible with the for construct, are called \italic{operating functions}. Stanza's core library includes a large number of commonly used ones. For more details, read the reference documentation. 
+
+Occasionally, it might also be appropriate to implement your own operating function. Here is an operating function that first iterates over each odd integer in a vector and then iterates over each even integer in the vector.
+\code{
+defn do-odd-then-even (f: Int -> ?, xs:Vector<Int>) :
+   for x in xs do :
+      if x % 2 != 0 : f(x)
+   for x in xs do :
+      if x % 2 == 0 : f(x)
+}
+Here is an example of using it in conjunction with the for construct.
+\code{
+val xs = Vector<Int>()
+add(xs, 1)
+add(xs, 3)
+add(xs, 2)
+add(xs, 6)
+add(xs, 5)
+add(xs, 2)
+add(xs, 4)
+add(xs, 3)
+
+for x in xs do-odd-then-even :
+   println(x)
+}
+Compiling and running the above prints out
+\code{
+1
+3
+5
+3
+2
+6
+2
+4
+}
+   
+\section{Stanza Idioms}
+With our new knowledge of anonymous functions, curried functions, and the for construct, we can now revisit our examples of using the core library and write them using standard Stanza idioms and functions.
+\code{\#{
+;A vector of strings
+val strs = Vector<String>()
+add-all(strs, ["patrick", "luca", "emmy", "Sunny", "whiskey", "Rummy"])
+;Sort by the second letter
+println("1.")
+qsort!({_[1]}, strs)
+println(strs)
+;A vector of ints and strings
+val int-strs = Vector<Int|String>()
+add-all(int-strs, [1, 3, "A", "B", 4, -10, "Timon", "Pumbaa", 42])
+;Sort using custom comparison function
+println("\n2.")
+qsort!{int-strs, _} $ fn (a, b) :
+   match(a, b) :
+      (a:Int, b:Int) : a < b
+      (a:Int, b:String) : a < length(b)
+      (a:String, b:Int) : length(a) < b
+      (a:String, b:String) : a < b
+println(int-strs)
+;Find first capitalized word
+println("\n3.")
+println $ for s in strs find :
+   upper-case?(s[0])
+;Find index of first capitalized word
+println("\n4.")
+println $ for s in strs index-when :
+   upper-case?(s[0])
+;Capitalize every word
+println("\n5.")
+for s in strs map! :
+   append(upper-case(s[0 to 1]), s[1 to false])
+println(strs)
+;A vector of integers
+val ints = Vector<Int>()
+add-all(ints, [4, 2, 3, -8, 5])
+;Are they all positive?
+println("\n6.")
+println $ for x in ints all? :
+   x > 0
+;Report lengths of string along with their index
+println("\n7.")
+for (s in strs, i in 0 to false) do :
+   println("strs[%_] = %_. Length = %_." % [i, strs[i], length(strs[i])])
+\#}}
+
+Compiling and running all of the above print outs
+\code{
+1.
+["patrick" "whiskey" "emmy" "Sunny" "Rummy" "luca"]
+
+2.
+[-10 1 "A" "B" 3 4 "Pumbaa" "Timon" 42]
+
+3.
+Sunny
+
+4.
+3
+
+5.
+["Patrick" "Whiskey" "Emmy" "Sunny" "Rummy" "Luca"]
+
+6.
+false
+
+7.
+strs[0] = Patrick. Length = 7.
+strs[1] = Whiskey. Length = 7.
+strs[2] = Emmy. Length = 4.
+strs[3] = Sunny. Length = 5.
+strs[4] = Rummy. Length = 5.
+strs[5] = Luca. Length = 4.
+}
+
+\section{Tail Calls}
+Consider the following function for computing the sum of all the positive integers less than or equal to \code{n}.
+\code{
+defn sum-of (n:Int) :
+   if n > 0 : n + sum-of(n - 1)
+   else : 0
+}
+Calling \code{sum-of(6)} returns \code{21}.
+
+Here's a visualization of the \italic{execution context} as that operation is being performed.
+\code{
+sum-of(6) =
+6 + sum-of(5) =
+6 + 5 + sum-of(4) =
+6 + 5 + 4 + sum-of(3) =
+6 + 5 + 4 + 3 + sum-of(2) =
+6 + 5 + 4 + 3 + 2 + sum-of(1) =
+6 + 5 + 4 + 3 + 2 + 1 + sum-of(0) =
+6 + 5 + 4 + 3 + 2 + 1 + 0 =
+6 + 5 + 4 + 3 + 2 + 1 =                  
+6 + 5 + 4 + 3 + 3 =                  
+6 + 5 + 4 + 6 =                  
+6 + 5 + 10 =                  
+6 + 15 =                  
+21
+}
+Observe that the computation of \code{sum-of(6)} requires knowing the result of \code{sum-of(5)}. And so we then recursively compute the result of \code{sum-of(5)} \italic{while remembering} that we should add \code{6} to the result to get the final answer. Similarly, the computation of \code{sum-of(5)} requires the result of \code{sum-of(4)}. Et cetera. 
+
+Each recursive invocation of \code{sum-of} requires us to remember what to do with the result. This is our execution context, and in Stanza, is saved in a stack of \italic{activation records}. How big does this stack get? Well, for \code{sum-of}, it grows to contain exactly \code{n} \italic{activation records}. 
+
+This can be verified by forcing a program failure when \code{n} is equal to \code{0} and looking at the \italic{stack trace}.
+\code{
+defn sum-of (n:Int) :
+   if n > 0 : n + sum-of(n - 1)
+   else : fatal("n reached zero.")
+}
+When compiled and ran, the above prints out
+\code{
+FATAL ERROR: n reached zero.
+   at test.stanza:7.10
+   at test.stanza:6.18
+   at test.stanza:6.18
+   at test.stanza:6.18
+   at test.stanza:6.18
+   at test.stanza:6.18
+   at test.stanza:6.18
+   at test.stanza:9.0
+}
+Each \code{test.stanza:6.18} entry in the stack trace refers to a recursive call to \code{sum-of(n - 1)}. Thus you can see that there are \code{6} entries corresponding to calling \code{sum-of(6)}. \italic{activation records} take up space. If \code{n} is too large, then eventually the stack of activation records will consume all of your program memory.
+
+\subsection{An Iterative Algorithm}
+Now consider this alternative implementation of \code{sum-of}.
+\code{
+defn sum-of (n:Int) :
+   x+sum-of(0, n)
+   
+defn x+sum-of (x:Int, n:Int) :
+   if n > 0 : x+sum-of(x + n, n - 1)
+   else : x  
+}
+
+Here's a visualization of the execution context of computing \code{sum-of(6)}.
+\code{
+sum-of(6) =
+x+sum-of(0, 6) =
+x+sum-of(6, 5) =
+x+sum-of(11, 4) =
+x+sum-of(15, 3) =
+x+sum-of(18, 2) =
+x+sum-of(20, 1) =
+x+sum-of(21, 0) =
+21
+}
+Similar to before, the computation of \code{x+sum-of(0, 6)} requires knowing the result of \code{x+sum-of(6, 5)}. And so we then recursively compute the result of \code{x+sum-of(6, 5)}. But this time, we don't have to remember what to do with the result! The result of \code{x+sum-of(6, 5)} \italic{is} the result of \code{x+sum-of(0, 6)}, so just return whatever \code{x+sum-of(6, 5)} returns. 
+
+In concrete terms, what this means is that Stanza can discard the activation record for \code{x+sum-of(0, 6)} immediately before calling \code{x+sum-of(6, 5)} since there's no context to remember. If that is done, then the number of activation records does not grow, no matter how large \code{n} is. And thus the program will not run out of memory. This optimization is called \italic{tail call optimization}.
+
+\subsection{Tail Call Optimization}
+By default, Stanza does not optimize tail calls in functions. This is done for the purposes of debugging. It is useful to have a complete stack trace, even if not strictly necessary for correct operation of the algorithm. To tell Stanza to optimize tail calls in a function, we have to explicitly declare the function as being tail call optimized.
+\code{
+defn sum-of (n:Int) :
+   x+sum-of(0, n)
+   
+defn* x+sum-of (x:Int, n:Int) :
+   if n > 0 : x+sum-of(x + n, n - 1)
+   else : x
+}
+\code{defn*} is the tail call optimized version of \code{defn}. Similarly, \code{defmethod*} is the tail call optimized version of \code{defmethod}, and \code{fn*} is the tail call optimized version of \code{fn}. 
+
+To verify that the stack frames are properly being discarded, we'll again force the program to fail when \code{n} is equal to \code{0} and examine the stack trace.
+\code{
+defn* x+sum-of (x:Int, n:Int) :
+   if n > 0 : x+sum-of(x + n, n - 1)
+   else : fatal("n reached zero.")
+}
+Compiling and running the program prints
+\code{
+FATAL ERROR: n reached zero.
+   at tests/test.stanza:6.3
+   at tests/test.stanza:20.10
+}
+There are now \italic{no} stack frames corresponding to \code{x+sum-of}. They have all been discarded.
+
+\section{Revisiting While}
+With the introduction of tail calls, it is time for us to unveil the internals of the while loop construct. The expression
+\code{
+var i = 0
+while i < 10 :
+   println(i)
+   i = i + 1
+}
+is equivalent to
+\code{
+var i = 0
+defn* loop () :
+   if i < 10 :
+      println(i)
+      i = i + 1
+      loop()
+loop()
+}
+Thus the while construct simply defines a local tail call optimized function and then calls it.
+
+Directly expressing loops using recursive functions can often be much more natural than using a while loop. A while loop loops by default, and the programmer has to specify when it should \italic{stop} looping. In constrast, a recursive function does \italic{not} loop by default, and the programmer instead specifies when to perform another iteration.
+
+Here is an example of using a tail call optimized function for finding the index of an integer \code{x} in a \italic{sorted} vector \code{xs} using binary search.
+\code{
+defn bsearch (x:Int, xs:Vector<Int>) :
+   label<Int|False> return :
+      defn* loop (start:Int, end:Int) :
+         if start < end :
+            val mid = start + (end - start) / 2
+            if x < xs[mid] : loop(start, mid)
+            else if x > xs[mid] : loop(mid + 1, end)
+            else : return(mid)
+      loop(0, length(xs))            
+}
+\code{loop} finds the index of \code{x}, assuming that it exists between the \code{start} index and \code{end} index (exclusive). It does this by computing a midpoint, \code{mid}, between the two indices. If \code{x} is less than the element at \code{mid} then it looks again in the first half of the range. If \code{x} is greater than the element at \code{mid} then it looks again in the second half of the range. Otherwise it has found \code{x}, and it is at index \code{mid}.
+
+Let's try looking for the numbers \code{1}, \code{14}, and \code{13}. 
+\code{
+defn main () :
+   val xs = Vector<Int>()
+   add-all(xs, [1,3,4,7,8,11,14,18,20,35])
+   println(bsearch(1, xs))
+   println(bsearch(14, xs))
+   println(bsearch(13, xs))
+
+main()
+}
+When compiled and ran, the above prints out
+\code{
+0
+6
+false
+}

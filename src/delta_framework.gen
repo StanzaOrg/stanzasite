@@ -1,0 +1,407 @@
+\chapter{Delta Framework}{}
+
+The Delta framework is a small library for helping you organize code according to a dependence graph. The other major paradigm for handling dependence graphs is the \italic{event handling} paradigm, which conceptually models a \italic{pushing} paradigm, where events are \italic{pushed} from the event sources to its dependents. In contrast, the Delta framework utilitizes a \italic{pulling} paradigm, where dependents ask the source for the set of changes that have been applied to it.
+
+\section{Array Sum}
+
+In this exercise, we will use the Delta framework to help us compute a running total of the contents of an array.
+
+\subsection{MyArray}
+
+First put all of our code in the \code{arraysum} package, which will need to import the \code{core}, \code{collections}, and \code{libqing} packages. Save the code in the file \code{arraysum.stanza}.
+\code{\{#
+defpackage arraysum :
+  import core
+  import collections
+  import libqing
+#}}
+
+Here is the code listing for the \code{MyArray} type, which implements a very basic array with functions for setting and retrieving elements at a given index, clearing the array, and retrieving the length of the array.
+
+\code{\{#
+deftype MyArray
+defmulti get (x:MyArray, i:Int) -> Int
+defmulti set (x:MyArray, i:Int, v:Int) -> False
+defmulti clear (x:MyArray) -> False
+defmulti length (x:MyArray) -> Int
+
+defn MyArray (n:Int) :
+  val array = Array<Int>(n, 0)
+
+  new MyArray :
+    defmethod get (this, i:Int) : array[i]
+    defmethod set (this, i:Int, v:Int) : array[i] = v
+    defmethod clear (this) : do({array[_] = 0}, 0 to n)
+    defmethod length (this) : n
+#}}
+
+\subsection{Test Code}
+
+In our test code, we will create a \code{MyArray} object called \code{xs}, and write a function called \code{sum-of-xs} that computes the sum of all the elements in the \code{xs}. We will then perform a sequence of operations on \code{xs} and print out the total after each set of operations.
+
+\code{\{#
+defn main () :
+  val xs = MyArray(10)
+
+  defn sum-of-xs () :
+    var total = 0
+    for i in 0 to length(xs) do :
+      total = total + xs[i]
+    total
+
+  println("\n\n1.")
+  println(sum-of-xs())
+
+  xs[0] = 10
+  xs[1] = 32
+  println("\n\n2.")
+  println(sum-of-xs())
+
+  xs[2] = 41
+  xs[3] = 40
+  println("\n\n3.")
+  println(sum-of-xs())
+
+  xs[0] = -10
+  println("\n\n4.")
+  println(sum-of-xs())
+
+  clear(xs)
+  println("\n\n5.")
+  println(sum-of-xs())  
+
+main()
+#}}
+
+Compile the above code by typing.
+\code{
+stanza libqing.stanza arraysum.stanza -ccfiles libqing_lib.c -o arraysum
+}
+
+Running the program \code{arraysum} prints out the following.
+\code{
+
+
+1.
+0
+
+
+2.
+42
+
+
+3.
+123
+
+
+4.
+103
+
+
+5.
+0
+}
+
+\subsection{Introducing Changes}
+
+The above code is inefficient because it recomputes the sum of \italic{all} the elements of the array repeatedly. A more efficient solution would be to detect the changes made to the array and just update a running total.
+
+The first thing that needs to be done is define the set of changes that can be made to a \code{MyArray} object. In our case, there are two operations that can change a \code{MyArray}:
+\list{
+\item Setting a new value at some index.
+\item Clearing the array.
+}
+
+So we will define two possible \code{Change} types to represent them, \code{AssignChange} and \code{ClearChange}. 
+\code{
+defstruct AssignChange <: Change :
+  index: Int
+  old-value: Int
+  value: Int
+
+defstruct ClearChange <: Change
+}
+
+Now we need to update the code for \code{MyArray} to \italic{track} the changes when operations are applied. We shall do this with a \code{ChangeTracker}. 
+
+\code{\{#
+deftype MyArray
+defmulti get (x:MyArray, i:Int) -> Int
+defmulti set (x:MyArray, i:Int, v:Int) -> False
+defmulti clear (x:MyArray) -> False
+defmulti length (x:MyArray) -> Int
+defmulti changes (x:MyArray) -> ChangeSeq
+
+defn MyArray (n:Int) :
+  val array = Array<Int>(n, 0)
+  val tracker = ChangeTracker()
+
+  new MyArray :
+    defmethod get (this, i:Int) : array[i]
+    defmethod set (this, i:Int, v:Int) :
+      changed(tracker, AssignChange(i, array[i], v))
+      array[i] = v
+    defmethod clear (this) :
+      changed(tracker, ClearChange())
+      do({array[_] = 0}, 0 to n)
+    defmethod length (this) :
+      n
+    defmethod changes (this) :
+      changes(tracker)
+#}}
+
+Notice how we've created a \code{ChangeTracker} object called \code{tracker}, and recorded changes using the call to the \code{changed} function. To retrieve the changes made to an array we added a \code{changes} multi which simply forwards the call to the \code{tracker} object.
+
+With these changes, we now the ability to query a \code{MyArray} object for any recent changes. 
+
+\subsection{Keeping a Running Total}
+In this section, we shall re-implement \code{sum-of-xs} efficiently by keeping a running total that is updated each time the array is changed. This way we won't have to iterate through the entire array each time to compute the sum.
+
+\code{\{#
+defn main () :
+  val xs = MyArray(10)
+  val xs-changes = changes(xs)
+
+  var total = 0
+  defn sum-of-xs () :
+    for c in xs-changes do :
+      match(c) :
+        (c:AssignChange) :
+          total = total - old-value(c) + value(c)
+        (c:ClearChange) :
+          total = 0
+    total
+
+  println("\n\n1.")
+  println(sum-of-xs())
+  ...
+
+main()
+#}}
+
+Now run the code again, and observe that it prints out the same thing as before.
+
+\subsection{What is Happening?}
+To really observe what is happening, let's add some print statements to the \code{sum-of-xs} function. 
+
+\code{\{#
+defn sum-of-xs () :
+  for c in xs-changes do :
+    match(c) :
+      (c:AssignChange) :
+        println("Updated total after replacing %_ with %_." %
+          [old-value(c), value(c)])
+        total = total - old-value(c) + value(c)
+      (c:ClearChange) :
+        println("Updated total after clearing array.")
+        total = 0
+  total      
+#}}
+
+Now the code prints out the following.
+\code{\{#
+
+
+1.
+0
+
+
+2.
+Updated total after replacing 0 with 10.
+Updated total after replacing 0 with 32.
+42
+
+
+3.
+Updated total after replacing 0 with 41.
+Updated total after replacing 0 with 40.
+123
+
+
+4.
+Updated total after replacing 10 with -10.
+103
+
+
+5.
+Updated total after clearing array.
+0
+#}}
+
+These print statements show how the total is updated incrementally as changes are made to the array. 
+
+In this section, you first wrote a simple and inefficient version of \code{sum-of-xs}. Then we gave \code{MyArray} the ability to track its changes, and used that ability to write an efficient incremental version of \code{sum-of-xs}. The Delta framework, thus allows you to very smoothly improve the efficiency of your software from a naive implementation to an efficient one using a dependence graph. 
+
+\section{Players and Enemies}
+
+In this section, we shall see how to observe the changes of multiple objects together. First create a file called \code{player.stanza} and start the file with this package definition.
+
+\code{\{#
+defpackage player :
+  import core
+  import collections
+  import libqing
+#}}
+
+\subsection{Players and Enemies}
+
+There are two different kinds of objects in this simulation, \code{Player} objects and \code{Enemy} objects. \code{Player} objects can be attacked and suffer damage, and \code{Enemy} objects can be killed. Here are their definitions.
+
+\code{\{#
+deftype Player
+defmulti attack (p:Player, damage:Int) -> False
+defmulti changes (p:Player) -> ChangeSeq
+defmulti name (p:Player) -> String
+
+deftype Enemy
+defmulti kill (e:Enemy) -> False
+defmulti changes (e:Enemy) -> ChangeSeq
+defmulti name (e:Enemy) -> String
+
+defn Player (name:String) :
+  val tracker = ChangeTracker()
+  new Player :
+    defmethod name (this) :
+      name
+    defmethod attack (this, damage:Int) :
+      changed(tracker, AttackedChange(this, damage))
+    defmethod changes (this) :
+      changes(tracker)
+
+defn Enemy (name:String) :
+  val tracker = ChangeTracker()
+  new Enemy :
+    defmethod name (this) :
+      name
+    defmethod kill (this) :
+      changed(tracker, KilledChange(this))
+    defmethod changes (this) :
+      changes(tracker)
+#}}
+
+Notice that both \code{Player} and \code{Enemy} objects keep track of their changes. Their changes are described by these structures.
+
+\code{\{#
+defstruct AttackedChange <: Change :
+  player: Player
+  damage: Int
+
+defstruct KilledChange <: Change :
+  enemy: Enemy
+#}}
+
+\subsection{Test Code}
+In our test code we will create a single \code{Player} object, and two \code{Enemy} objects. 
+
+\code{\{#
+val player1 = Player("Patrick")
+val enemy1 = Enemy("Seth")
+val enemy2 = Enemy("Zecks")
+#}}
+
+To observe \italic{all} of the changes from each of these objects together. We shall use the special function \code{merge-all} to merge all of their change sets into a single set. 
+
+\code{
+val changes = merge-all([
+  changes(player1), changes(enemy1), changes(enemy2)])
+}
+
+Now we'll write a small function to simply report any changes that happened.
+\code{
+defn report-changes () :
+  for c in changes do :
+    match(c) :
+      (c:AttackedChange) :
+        println("Player %_ suffered %_ damage." % [name(player(c)), damage(c)])
+      (c:KilledChange) :
+        println("Enemy %_ was killed" % [name(enemy(c))])
+}
+\code{report-changes} simply prints out a short message whenever the state of the \code{Player} or one of the \code{Enemy} objects change.
+
+Let's now try performing some operations on these objects and observe the changes.
+\code{
+attack(player1, 1)
+attack(player1, 2)
+attack(player1, 5)
+kill(enemy2)
+attack(player1, 10)
+println("1.")
+report-changes()
+
+kill(enemy1)
+attack(player1, 10)
+attack(player1, 20)
+kill(enemy2)
+attack(player1, 100)
+println("2.")
+report-changes()
+}
+After each set of operations, we call \code{report-changes} to print out all the activity.
+
+\subsection{Code Listing}
+Here is the complete code listing for the test code.
+
+\code{
+defn main () :
+  val player1 = Player("Patrick")
+  val enemy1 = Enemy("Seth")
+  val enemy2 = Enemy("Zecks")
+  val changes = merge-all([changes(player1),
+                           changes(enemy1),
+                           changes(enemy2)])
+
+  defn report-changes () :
+    for c in changes do :
+      match(c) :
+        (c:AttackedChange) :
+          println("Player %_ suffered %_ damage." % [name(player(c)), damage(c)])
+        (c:KilledChange) :
+          println("Enemy %_ was killed" % [name(enemy(c))])
+
+  attack(player1, 1)
+  attack(player1, 2)
+  attack(player1, 5)
+  kill(enemy2)
+  attack(player1, 10)
+  println("1.")
+  report-changes()
+
+  kill(enemy1)
+  attack(player1, 10)
+  attack(player1, 20)
+  kill(enemy2)
+  attack(player1, 100)
+  println("2.")
+  report-changes()
+
+main()
+}
+
+When you compile and run this program it prints out the following.
+\code{
+1.
+Player Patrick suffered 1 damage.
+Player Patrick suffered 2 damage.
+Player Patrick suffered 5 damage.
+Enemy Zecks was killed
+Player Patrick suffered 10 damage.
+2.
+Enemy Seth was killed
+Player Patrick suffered 10 damage.
+Player Patrick suffered 20 damage.
+Enemy Zecks was killed
+Player Patrick suffered 100 damage.
+}
+
+Notice how the \code{merge-all} function combines the changes of all the objects into a single change set that we can iterate over.
+
+\section{Conclusion}
+
+Here is what we covered in this tutorial. 
+\list{
+\item Create a subtype of \code{Change} for each type of change that you want to record for an object.
+\item Keep track of changes using a \code{ChangeTracker} and by calling \code{changed} on it.
+\item Retrieve the changes seen by a \code{ChangeTracker} using the \code{changes} function.
+\item Use the \code{merge-all} function to merge the change sets of multiple \code{ChangeTracker} objects.
+}
+

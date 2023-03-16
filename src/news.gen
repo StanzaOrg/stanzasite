@@ -1,0 +1,322 @@
+\let{
+
+\def[\signname](){\paragraph{   -Patrick}}
+
+}\in{
+
+\anchor{2020}
+\quietheader{January 24, 2020}
+
+Wow! So, this is an incredibly belated update about myself, about Stanza, and where everything is going. 
+
+Stanza itself has been chugging along, as evidenced by the Downloads section of the website, but I haven't had the time to update the News section for a while. 
+
+I myself completed my Ph.D. at the University of California, Berkeley and recently got married to the love of my life. After graduating, I cofounded a company called JITX with my advisor, Jonathan, and my labmates, where we are working on designing a programming language for designing circuit boards. (Think Verilog/VHDL for circuit boards.) 
+
+Stanza is our main implementation language at JITX, and its been incredibly rewarding to exploit all of Stanza's features to build such a sophisticated system so quickly. Paul Graham \aT[href="http://paulgraham.com/avg.html"]{speaks the truth}: your choice of programming language \italic{drastically} affects not just how fast you implement something, but also what you even attempt to implement. 
+
+So Stanza is in a great place. JITX has propelled a bunch of new feature development, including:
+\list{
+\item a very novel statically-typed and hot-reloading REPL,
+\item a new integrated test framework, and
+\item a new build system that drastically simplifies management of large Stanza projects.
+}
+
+JITX has funding from YCombinator, Sequoia, and DARPA, so both JITX and Stanza are in a great place financially. Stanza will always remain free and open-source, and it will continue to be our competitive advantage and push JITX forward. We have an LLVM backend on the horizon, so that we can take advantage of their code generator and loop optimizations, and we are planning support for the Language Server Protocol so that Stanza will be well supported on all the major IDEs. 
+
+So, we're still alive and kicking, and Stanza is in a better position than it's ever been.
+
+\signname
+
+\anchor{2016}
+\quietheader{December 31, 2016}
+
+Stanza version 0.11.3 has been released today, and includes a number of improvements and new features.
+
+\list{
+\item Separate Compilation : The new Stanza compiler now caches the results of register allocation in the compiled .pkg files. This means that packages can be compiled separately from each other, and then later linked together to form the program. When working on large programs, you can use this feature to avoid recompiling the entire program after making changes to a single file. This feature makes Stanza capable of developing large programs.
+
+\item Relaxed Pkg Dependency : The current .pkg system forces users to compile their packages in import dependency order. That is, you must first compile all the packages that a package imports before you can compile the package itself. If you change a package you must also recompile all downstream packages.
+
+This has been relaxed in the latest version. Downstream packages only have to be recompiled if you make a change to the package's public interface. If the change is internal to the package, the rest of the downstream packages don't need to be recompiled. 
+
+\item Informative Runtime Error Messages : Those that have been frustrated by the \italic{Cannot cast error to type} error message will be happy to hear that they have been made much more informative. They now say something along the lines of \italic{Cannot cast a value of type Int to type String}. 
+
+\item #for Macro : To aid in the writing of repetitive code, I've included a simple search-and-replace macro. Here's an example of using it. Here's an example of some repetitive code:
+
+\code{
+defmulti apple (x:Int) -> Int
+defmulti banana (x:String) -> String
+defmulti orange (x:Char) -> Char
+defmulti kiwi (x:Double) -> Double
+}
+
+You may now instead use the \code{#for} macro.
+
+\code{
+#for (name in [apple banana orange kiwi]
+      Type in [Int String Char Double]) :
+  defmulti name (x:Type) -> Type    
+}
+}
+
+Happy holidays!
+\signname
+
+\quietheader{December 11, 2016}
+
+Minor release version 0.11.1 contains a number of small improvements to the runtime error messages. If you've ever found yourself scratching your head at a \code{Cannot cast value to type} error, fear no more. Those error messages have vastly improved and now print out the expected and actual types. So now the error looks more like \code{Cannot cast value of type Int to type String} which is much more sensible. It's a fairly small (but useful) change from the user's perspective, but the reason it took so long to get working is because it necessitated the generation of a number of additional runtime tables. 
+
+\signname
+
+\quietheader{December 9, 2016}
+
+I made a major release to Stanza this week: Version 0.11.0. This new version substantially increases the speed of Stanza's incremental builds. The results of code generation and register allocation are saved in the intermediate .pkg files. For large projects, this means that you only have to recompile the files that you've touched, and the Stanza compiler will simply link all the files together at the end. This is a major step for Stanza and enables it to be used for "programming in the large".
+
+In the new system, the .pkg files also does \italic{not} need to be built according to dependence order. For instance, suppose that package B imports package A, and they have each been compiled to \code{b.pkg} and \code{a.pkg} respectively. Stanza now allows you to make \italic{compatible} changes to package A without having to recompile package B. \italic{Compatible} changes are changes that do not affect the type signature of a function that package B depends upon.
+
+So try it out! The compiler should be much faster now for small projects. And for large projects, you can reduce the test-compile-run loop by recompiling only the files you've changed.
+
+\signname
+
+\quietheader{November 9, 2016}
+
+A week or so ago, I gave a short lecture on some advanced Stanza features for CS294. The slides can be found \aT[href="resources/stanza_advanced_2016.pdf"]{here}.
+
+The new separate compilation system that I've been working on is coming along. The new system no longer require packages to be compiled in dependence order. This means that if you make a change to a package you can recompile it individually without having to recompile any packages that depend on it. The new .pkg files also cache the results of register allocation so compile-time speed should be greatly increased as well.
+
+\signname
+
+\quietheader{November 3, 2016}
+
+Jonathan alerted me to a rare bug in the register allocator today. The register allocator uses special \italic{nop} instructions to make the 2-address x86 processor mimic a 3-address code RISC processor for non-commutative operations (like subtract). Since the \italic{nop} instruction now takes an argument, it means that there are variables that can be killed by a \italic{nop} instruction, and that was not being reflected in the register assignment routine. The fix has been released in version 0.10.9. 
+
+\signname
+
+\quietheader{August 30, 2016}
+
+Stanza is being used to teach \italic{CS294-126: Software Defined Printed Circuit Boards} at Berkeley this fall! The course involves automatically generating circuit boards from declarative designs, and is designed to get beginners up and started making sophisticated boards quickly. I just gave an introduction lecture today about the parts of Stanza that students need for the course. You can find the slides \aT[href="resources/stanza_intro_2016.pdf"]{here}.
+
+\signname
+
+
+\quietheader{August 28, 2016}
+Released version 0.10.8 today. This version fixes a subtle issue with structs containing structs in LoStanza, and another issue with printing stack traces under certain situations where the runtime is starved for stack space.
+
+\signname
+
+\quietheader{August 16, 2016}
+Finished a new article detailing the motivation and mechanisms behind Stanza's optional type system. You can find it in the Documentation section on the website under the Essays category. This is the first in a planned series of articles for explaining the core systems that Stanza is built upon. An article each is planned for explaining the details of Stanza's object system, macro system, coroutine system, and LoStanza system.
+
+\signname
+
+\quietheader{July 4, 2016}
+Released Stanza 0.10.0 today. Notice that the second number ticked which means that this version is technically not backwards compatible. The biggest new feature is the revamped macro system, which now calculates the types of the binders used in syntax rules, allows for fine control over syntax overlays, and allows for direct left recursion. It's not yet documented though, I'll start that now. I say that 0.10.0 is \italic{technically} not backwards compatible, because it is unlikely that any public user was using the old macro system anyway since I left it undocumented.
+
+A huge thanks goes to Devin Nusbaum for implementing the \code{BufferedInputStream} type, which allows users to peek ahead in a stream by arbitrary amounts. And also, thanks to Jake Russo for suggesting the \code{stanza check} command for running Stanza's type checker without code generation for use by intelligent text editors. The Stanza support for Howl is looking awesome! 
+
+\signname
+
+\quietheader{June 18, 2016}
+Released Stanza 0.9.5 over the weekend, which includes support for random access files and efficiently reading contiguous bytes from a file. A fun tutorial walking readers through how to implement a Tetris clone has also been posted. It's always fun to do something with graphics once in a while. The logic for the actual game is quite simple, but the tutorial does go into some amount of depth regarding how to interface with the QT GUI library using LoStanza. GUI libraries are some of the hardest libraries to interface with because of their reliance on callbacks and heavy use of object-oriented constructs. So in addition to teaching readers how to program Tetris, it is also an example of very sophisticated interactions with a foreign library. LoStanza users should find it helpful.
+
+\signname
+
+\quietheader{May 27, 2016}
+Spent the last week implementing the calling conventions for the Windows calling convention. And now I'm happy to announce that Stanza supports Windows! We rely upon the wonderful MinGW-w64 port of the gcc runtime system for compiling the runtime driver and linking it against the generated assembly code. Next we'll work on connecting to the QT gui library and dusting off my old Tetris and Slide-15 games as demonstrations.
+
+\signname
+
+\quietheader{May 21, 2016}
+Well the release went great! We announced Stanza on Hacker News, Reddit, and GameDev, and we were on the front page of all three for a few days! Thank you everyone for your support and encouragement! 
+
+Of course, this is just the beginning, we're now hard back at work on adding features to Stanza. Here are the upcoming features that are being developed:
+\list{
+\item Windows Support
+\item Gui Programming with QT
+\item Graphics/Game Programming with OpenGL and GLFW
+\item Networking Library
+\item Regex Library
+}
+
+And general runtime and compilation performance will gradually get faster as we work on optimizing both the code generator and the separate compiler.
+
+\signname
+
+
+\quietheader{May 14, 2016}
+Events are afoot. 
+
+\italic{Stanza by Example} has been posted online, and the Stanza repository has been migrated to GitHub and made public. There are some very minor modications to be made to the core macros, and then Stanza will officially be released!
+
+\signname
+
+\quietheader{May 11, 2016}
+I spent the last two weeks writing nearly two hundred pages of documentation for teaching users how to program in Stanza. The material is a more polished version of the lesson plan that I used to teach the bootcamps. 
+
+The bootcamps themselves only lasted six sessions over the span of two weeks and no one seemed to have much trouble with the material. I felt that that was a good indicator that Stanza is indeed as easy to learn as I had hoped, so it was surprising that six sessions of material still ballooned out to two hundred pages when written out. 
+
+Ironically, one of my main worries right now is that people find Stanza \italic{too} easy to learn! There are a lot of mechanisms underneath Stanza that are vastly different than existing languages. But to avoid scaring users away, these mechanisms are intentionally disguised as familiar constructs that you would be able to find in other languages. 
+
+I had a conversation with one of my early users and he admitted to me that he didn't really think Stanza was all that different from the other languages. That is, until he recently switched back to using Ruby at work and then realized that all the features he had come to rely upon in Stanza are no longer there. Such as having types catch his mistakes, and being able to declare new functions on existing types whenever he felt like it.
+
+So on the one hand, I took his comment as a compliment, indicating that I disguised Stanza's mechanisms quite well. But on the other hand, I hope other users don't immediately dismiss Stanza as being too boring. It only looks boring on the surface. And that was intentional! (And also took a ton of work).
+
+Anyway, the release is within days now, and it's very exciting! I feel like Stanza has finally grown up and is about to see the world!
+
+\signname
+
+\quietheader{April 28, 2016}
+Stanza is about to see its first public release! A lot of things have happened in the past year. LoStanza has been integrated into the language proper, and now users can easily drop down and write performance critical and low-level kernels in LoStanza. The core library has been further systematized, and a new separate compiler now compiles separate Stanza source files to .pkg files. The specification for FIRRTL, Stanza's first big project, has been publicly released and is now undergoing review with industry members. I designed a teaching language called Feeny using Stanza and used it to teach a virtual machine course with Mario Wolczko in the fall, and won a teaching award for it. \italic{And} we got a spiffy new website! 
+
+We are very excited to finally be at the point where we're ready to share it with the world. Of course, we are still hard at work on the internals. The runtime performance and compiler performance will continue to improve. The core libraries will gain more and more functionality. And now that we have LoStanza, we will work on connecting widely used libraries (like QT) to Stanza so that users can immediately be productive.
+
+\signname
+
+\anchor{2015}
+\quietheader{April 12, 2015}
+Two steps forward, two steps back today. After a full week of wrestling with getting predictable error messages out of the backtracking CFGs I've decided to throw in the towel, and keep only the more limited backtracking system of simple PEGs instead. I put in a lot of effort in the algorithm for parsing OCFGs, and finally after using it for a while, realized that its just too unnecessarily powerful for a macro system. Because of the full backtracking, and because macro patterns are typically written with a "fall-through" logic, it is actually too easy for the system to come up with valid parses for just about any arbitrary stream of tokens. Most of what it takes to implement good error messages involves \italic{limiting} which rules are allowed to backtrack and to what point. And the desired behaviour of the \italic{majority} of rules is to disallow backtracking. 
+
+\signname
+
+\quietheader{April 10, 2015}
+There's been another major revamp to the macro system. Stanza's macro system now uses a fully backtracking recursive descent parser to parse and expand all of its macros. The parsing system interprets a context-free grammar as parsing rules (instead of as generation rules) to parse a hierarchical s-expression. For now I'm going to call them OCFGs, for "Ordered Context Free Grammars". Eventually I'll get around to writing a paper about it. 
+
+The major extension to CFG's needed for the parsing system is a notion of ordering of rules for the choice (|) operator. Traditionally, a CFG imposes no ordering on the choice operator, and the pattern A|B is equivalent to B|A. This makes it possible to express ambiguous grammars using a CFG, which is great for parsing natural language, but quite annoying for parsing programming languages. Instead, an OCFG imposes a strict total ordering on all the strings that it accepts, and we define the "correct" parse for a string as the first parse that accepts the string. 
+
+This is very similar to Ford's Parsing Expression Grammars (PEGs) but with one vital difference. OCFGs support both the choice (|) operator as well as Ford's greedy choice (/) operator. PEGs are already very powerful and work just fine when a user is defining the \italic{entire} syntax for a new language. For any desired use of the choice operator, the user can always jiggle the production rules a little bit and re-express them using the greedy choice operator instead. However, for the purposes of an extensible macro system, where the core macros are supposed to work \italic{without} knowing all the possible future rules that a user may add, the choice operator becomes very useful.
+
+One theoretically challenging issue when interpreting a CFG as parsing rules rather than generation rules involves the semantics of left recursive productions. Medeiros et al. solves this utterly and completely in their 2014 paper for PEGs. A similar solution can be adapted to OCFGs. For now, I have opted \italic{not} to do this. 
+
+I believe that ordering between accepted strings in mutually left recursive productions is fundamentally ambiguous, and it causes a lot of confusion. Medeiros' semantics defines one possible ordering, but it doesn't alleviate the confusion. For example, Medeiros semantics is not robust to inlining of productions! I actually had Medeiro's semantics working for Stanza, and then noticed that I was getting a different parse when I decided to inline one of the productions for readability. I decided that that was unacceptable, and now only support direct left recursion in macros.
+
+On a positive note though, I support direct left recursion using rule rewriting with a method that elegantly handles semantic actions as well. Correctly handling semantic actions has always been one of the trickier aspects of rule rewriting, and this framework makes that much easier. The same method can also be applied to support left factoring and predictive parsing rewrites in the presence of semantic actions.
+
+\signname
+
+\quietheader{March 21, 2015}
+It's been over half a year since my last post, but I'm happy to reassure everyone that Stanza is still alive and kicking. And doing better than ever! Part of the reason for the long delay in posting is that I've been making some substantial changes to Stanza's compiler, and the new version marks a major overhaul of several key systems. 
+
+For those interested, Stanza now compiles to an intermediate language called LoStanza, which is a low-level C-like language with exposed pointers that allow me to write Stanza's runtime. The interesting part about LoStanza is in the use of meta-circularity in its support for garbage-collection. LoStanza offers garbage-collection in the sense that it guarantees a very specific layout of the stack and heap, and to call a user-defined function whenever an attempt is made to allocate an object when the heap is full. That's it! 
+
+This design allows the garbage-collector to be written in the same language that it is garbage collecting! One of the trickiest parts of implementing a functional programming language I've found has been in the interactions between the code generator and the garbage collector. This is true especially for supporting a precise relocating garbage collector. But by defining a clean LoStanza intermediate language, the code generator can ignore the subtleties of the garbage collector and simply output LoStanza code. 
+
+With the introduction of LoStanza, I can claim that Stanza is now nearly completely self-hosted. The macros are written in Stanza. The compiler is written in Stanza. And the runtime and the garbage collector is now also written in (Lo)Stanza. The only remaining use of C has been calling out to the standard implementations of files, system functions, and mathematical libraries. 
+
+The major user visible feature is the overhauled type system. The type system now keeps track of conversative bounds on variables to better help it disambiguate calls to overloaded functions. Variables now no longer need explicit type declarations. They are inferred to have the most precise type necessary to hold all of its stored values. The constraint solver was completely written to be more systematic, and many more recursive functions now have their output types inferred. 
+
+One very useful addition to the new type system has been the introduction of automatic function mixing. Suppose the function f has two overloaded versions, one that accepts a single String argument and returns String, and another that accepts a single Int argument and returns Int. Now suppose I call f with a value, x, of type Int|String. This would have been rejected by the old type system as neither version of f can itself accept x. The new type system however will now automatically mix the two f's into a dynamically dispatched call. If x turns out to be an Int, then the f that works on Int will be called. And if x turns out to be a String, then the f that works on String will be called. The return type of the call will then be Int|String. At first, I thought this will eliminate some minor inconveniences, but I found that I am now using it more and more because union types are such an essential part of Stanza.
+
+The aspect of automatic function mixing that makes me happiest is that, while it sounds like an extra bell or whistle on top of an existing core type system, it is in fact a very fundamental feature of a gradual type system. And getting this system right has actually substantially \italic{simplified} the rest of the type system. That's usually when I know I've done something right. If a feature becomes \italic{more} powerful with \italic{less} code, then I start to think I'm on the right track.
+
+More and more effort is being devoted to improving the quality of the generated code. This improves both the performance of user programs, but because Stanza is bootstrapped, it also improves the performance of the compiler. The compiler now compiles itself in 50 seconds, which is substantially faster than before. With all of these new systems, the compiler is now 18000 lines of code, which means that the compiler can handle decently sized projects with reasonable compile-time speeds. Keep in mind also that Stanza is also a lot denser than many other programming languages. 18000 lines of Stanza code can do a lot!
+
+I am really happy with Stanza's progress so far. I've been programming exclusively in Stanza for the last two years now, and I honestly believe that it is \italic{the} most productive language out there currently for desktop applications. The object system is just so much more flexible than the old class-based systems. Since using Stanza, I have \italic{never} "architected myself into a corner" as is so common in, e.g. Java. And Stanza's gradual type system allows me to both prototype ideas extremely quickly by simply leaving off the type declarations, and also quickly make the prototype robust by adding types back to stabilized designs. I would actually argue that the gradual type system allows me to prototype applications \italic{faster} than with completely dynamically typed languages, because I have the flexibility to be completely dynamic when I need it, but I also have the full power of a typechecker to help me catch all of those silly typos. 
+
+Effort will continue in optimizing Stanza, and I will soon start working on the Window's port, so stay tuned!
+
+\signname
+
+\anchor{2014}
+\quietheader{October 1, 2014}
+Fixed a subtle lurking bug in the implementation of dynamic-wind for the coroutines. When breaking from a coroutine, the wind-outs were being executed before leaving the coroutine instead of afterwards. For most uses of dynamic-wind, it doesn't make any difference what order it happens in, but if the wind-out depends on the status of the coroutine (ie. if it calls close) then it is important to leave the coroutine before executing the winder. 
+
+Also, I've added support for package qualified identifiers in Stanza. What this means for users is that they no longer need to manually import the dependent packages when using a macro that expands to calls to functions. For macro writers, package qualified identifiers should provide some piece of mind as a solution for the other half of the hygiene problem.
+
+\signname
+
+\quietheader{September 26, 2014}
+Made some major internal revisions to Stanza in the last week. The new pattern-matching macro system is complete and significantly reduces the effort involved in writing new macros. One advantage of the new system, is that because of its ease, it has been much easier to add better error messages to the macros. The new Stanza should now output much more understandable error messages for macro syntax errors. 
+
+core.stanza and verse.stanza are now included implicitly during compilation and users will no longer have to include them manually. Programs also now start in a default package with the core and verse libraries already imported, so helloworld is just a single line program now, which helps streamline the learning process for beginners. 
+
+There's been a few minor syntax changes to the language. The syntax for characters are now identical to how they are declared in C and Java, and backtick is now used for quoting literal objects. 
+
+I also added a system call to gcc directly in the compiler to link the resulting assembly file against Stanza's runtime. Thus Stanza now behaves much more like a regular compiler. Users simply give Stanza the input .stanza files, and Stanza will produce an executable. To allow users to add stanza to their path, the main stanza executable is now called stanzac. Running "stanzac -install stanza" will generate a shell script that calls stanzac with the correct path. 
+
+All said and done, the new version should feel much more streamlined than before. I'm excited to test it out at next week's bootcamp.
+
+\signname
+
+
+\quietheader{September 21, 2014}
+
+Started working on a more convenient pattern-matcher for the macro system. Macros are typically split up into a parsing and writing stage. During parsing, the macro takes in the tree of tokens, and pulls whatever information it needs out of it. Then the macro fills in a new template with the information pulled out from the original tree. For the writing stage, the fill-template function works nicely and makes even complicated macros quite straightforward. However, the parsing stage is currently extremely low-level. I typically create a TokenEater and then methodically call eat() or parse-next() to grab the tokens that I need. 
+
+With the new pattern-matcher, I should be able to just declare the form of the expected syntax and have it pull out the required pieces for me. 
+
+\signname
+
+\quietheader{September 15, 2014}
+
+Completely forgot that binaries made for OS-X do not just magically work in Linux. Downloaded a virtual machine, and got stanza to work with gcc instead of clang. The lack of the underscore prefix in linux was especially irritating, but at least everything works now. Also added some nicer error messages to some of the macros.
+
+\signname
+
+\quietheader{September 14, 2014}
+
+Made some minor syntactical changes today. The modulus operator has been changed from "mod" to "%" as per C tradition. And a bug in the implementation of "join" has been fixed. 
+
+\signname
+
+\quietheader{September 12, 2014}
+I significantly overhauled the type inference algorithm over the last two weeks. I use a tree search algorithm to implement the capturing algorithm for inferring captured type parameters. The overall constraint solver used for the program is a dataflow solver, with no backtracking. The lack of backtracking makes the type inference results more predictable, but it does mean that the solver gives up earlier in ambiguous cases. Predictability of type inference is of critical importance in Stanza because the runtime actually enforces that the program state is always consistent with its inferred types. Thus I feel this is a worthwhile compromise. 
+
+There remains work to be done on better explaining the error messages. But those will slowly get better over time.
+
+One important advantage for users though, with the new type inference algorithm, is that full intersection types are now supported. This is especially useful since intersection types in combination with the captured parameter system can be used to accomplish many of the same tasks as bounded quantifiers. 
+
+\signname
+
+
+\quietheader{September 2, 2014}
+I've refined the "Stanza by Example" guide further. The book is now written closer in style to a tutorial than a informal language reference. The book is broken into chapters where each chapter is followed by a set of exercises. The exercises are meant to test the reader's understanding and to get some practice with some of the more subtle points. 
+
+The chapters are meant to be read in order, and my intention is for chapters to only reference material introduced in earlier chapters. While this is good from a pedagogical point of view, it does however mean that the main features of the language are distributed amongst the entire book, instead of each feature having its own dedicated section. For instance, there is no longer a chapter on types that covers Stanza's type system in its entirety. Instead, the details about the type system are introduced when necessary.
+
+In a way, I feel that the goals of clean language design almost runs counter to the goal of teaching. A programming language is comprised of a number of core concepts, and the mark of a clean design is to have a small number of core concepts. There shouldn't be a new language concept for every new application that a user may wish to write. Instead, users should be able to mix and match amongst the small set of concepts to write any application they may desire. I envision the cleanest design to be a fully connected graph of orthogonal concepts. Every subset of the concepts should be useful for some application. 
+
+But whilst a clean language may resemble a fully connected graph of concepts, the easiest language to teach would be one that is comprised of a single linear chain of concepts. Concepts can be safely taught individually in isolation without worrying about forward references to other not-yet-introduced concepts. 
+
+My compromise is to split the documentation of Stanza into two parts. "Stanza by Example" is meant to teach users how to program in Stanza, and is organized according to what I consider to be the best order to learn things in. The Stanza website will contain a separate language reference that is organized according to the logical layout of the language design. This reference will be the shortest and clearest description of Stanza as a whole, but may be difficult to understand for users who are not already familiar with the language. 
+
+\signname
+
+
+\quietheader{August 29, 2014}
+Simplified the dichotomy between the true/false values and the true/false symbols today. Now, true and false are directly read in as values during the lexing phase of the compiler. I made this change because for day-to-day programming, this is the expected behavior. 
+
+This introduces some slight gotchas for macro writers. For example, the list '(a b c true false d) is no longer a list containing six symbols. It is a list that contains three symbols, followed by true, followed by false, followed by another symbol.
+
+To actually refer to the symbol true and the symbol false, they must be escaped using the backslash. Thus \\|true| and \\|false| refer to the symbols true and false respectively. 
+
+\signname
+
+\quietheader{August 28, 2014}
+Completed a small but fairly fundamental change to the core language today. Stanza, by design, is a balance between dynamically-typed scripting languages like Python/Ruby/Scheme and statically-typed languages like ML/Java. But the two families of languages sometimes have conflicting traditions. One such tradition is what to do about null/nil/true/false and if statements. 
+
+In dynamically-typed languages, the tradition has been to reserve a special value called "null" or "nil" which is used conventionally to indicate the absence of a meaningful value. The if statement then branches one way if its predicate evaluates to nil, and the other way if it does not evaluate to nil. There is no need for the predicate to be a boolean, as the if statement simply checks for nil or non-nil. This design choice, sometimes refered to as "nil-punning", allows us to pull off some cute one-liners like the following: suppose a, b, and c can all either be an integer or nil, and you want to return the first one of them that isn't nil. Then you can write something like "return a or b or c", which uses (abuses?) the short-circuiting nature of the or operator to return the first one that evaluates to non-nil.
+
+In contrast, statically-typed languages typically have a distinguished Boolean type, and the if statement predicate must be a value of that type. This will no longer allow us to do our previous one-liner as neither a, b, or c are booleans and hence cannot be used as arguments to the or operator. The advantages of having a distinguished boolean type, however, is that we now get a nice error-message if we use a non-boolean as the predicate to an if statement. 
+
+Stanza has built-in support for untagged union types, and so does not need a special boolean type. But today, I changed the if statement to require a value of type True|False as its predicate. Upon looking through the source code for the compiler, I've only ever used nil-punning once. Thus I've decided that the advantages of having more compile-time error messages outweighs the little bit of succinctness that nil-punning buys us. 
+
+\signname
+
+\quietheader{August 24, 2014}
+Added a few new niceties. The << operator has been changed to $, as I needed << for the left bit shift operator. The $ operator is inspired by Haskell's infix application operator. Thanks to James Martin for this tip.
+
+I've added a -exepaths option to the main stanza executable that makes it print the paths of all the C files that the generated files depend on. The make shell script now uses that feature to figure out the include paths needed to be passed to gcc. Thus now users can call the stanza compiler from any working directory and all the proper dependencies will be included. This was a result of a great ten minute crash course James gave me on Linux fundamentals. 
+
+Work has started on a new Chisel implementation in LBStanza. Instead of creating a circuit graph directly, it instead creates an immutable intermediate language tree that then goes through several lowering layers to arrive at the circuit graph. One of the problems with continuously mutating a graph is that it's very difficult to describe precisely when mutations are guaranteed happen, thus users are never quite sure if a necessary field has been populated yet. Hopefully with this two-level separation we can get past this hurdle. 
+
+I have a 15-sliding puzzle, and a Tetris clone written in Stanza with some light-weight QT bindings that I will upload to the Examples section soon. Maintaining a website has just been more work than I originally thought. 
+
+\signname
+
+\quietheader{August 17, 2014}
+This marks the first day of the release of this website, and hence of L.B.Stanza to the public. It is still in alpha status, and only x64 Linux/Macintosh is supported, but the language is ready for developing applications.
+
+\signname
+
+}

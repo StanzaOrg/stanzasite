@@ -1,0 +1,17 @@
+\ifonline{
+\header{Stanza by Example}
+
+\quietsubheader{Patrick S. Li}
+}
+
+\italic{Stanza by Example} is an introductory book for teaching readers how to program in the L.B. Stanza programming language. Readers are assumed to have basic programming experience, at about the level required to implement and understand a basic sorting algorithm. This book is not a reference book, and is meant to be read in order from front to back. The material is written expecting readers to follow along with the coding examples and to the suggested exercises. By following the book, readers will gain a thorough understanding of Stanza's fundamental mechanisms and coding style. 
+
+For absolute beginners to programming, the pace of the first chapter will feel a bit fast, and readers are encouraged to take their time to understand and \italic{experiment} with the examples. When I was young, I taught myself to program by reading \italic{Beginning Java 2} by Ivor Horton, and one of the goals of this book is to help beginners get started with programming in the same way that Mr. Horton's book has helped me. Once you get the hang of it, programming is an extremely creative and satisfying endeavor. 
+
+I hope you enjoy the book, and Stanza. 
+
+  -Patrick
+
+\ifonline{For those people that would prefer an offline version of the book, you can also find a PDF version \aT[href=resources/stanzabyexample.pdf]{here}.}
+\ifonline{\table_of_contents}
+

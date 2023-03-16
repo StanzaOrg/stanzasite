@@ -1,0 +1,106 @@
+defpackage stanzasite :
+   import core
+   import collections
+   import webgen
+
+;============================================================
+;================== Chapter Grouping ========================
+;============================================================
+
+def-function(\<P>\group_sections{\Body}<P>,
+  fn* (env, entries) :
+    val body = expand(lookup(entries, `Body), env)
+
+    defn item? (e:Exp, item-name:String) :
+      match(e:Comm) :
+        if name(e) == `item :
+          string?(args(args(e)[0]), item-name)
+
+    defn group (es:ExpList) -> [ExpList, ExpList] :
+      if empty?(es) :
+        [ExpList(), ExpList()]
+      else if item?(head(es), "chapter") :
+        val [ss, accum] = group(tail(es))
+        val sections = Comm(`sections, List(Args(AfnArg(), ss)))
+        [ExpList(), cons(head(es), cons(sections, accum))]
+      else if item?(head(es), "section") :
+        val [ss, accum] = group(tail(es))
+        [cons(head(es), ss), accum]
+      else :
+        throw(Exception("Invalid entry %_ in chapter list." % [head(es)]))
+
+    val [ss, cs] = group(body)
+    if not empty?(ss) :
+      throw(Exception("Sections not under chapter: %," % [ss]))
+    cs)
+
+defn string? (es:ExpList, str:String) :
+  length(es) == length(str) and
+  for (e in es, c in str) all? :
+    match(e:LiteralChar) :
+      char(e) == c
+
+;============================================================
+;=================== Paragraph Macro ========================
+;============================================================
+
+def-function(\<P>\paragraphs{\Body}<P>,
+  fn* (env, entries) :
+    val body = expand(lookup(entries, `Body), env)
+    val stream = to-seq(body)
+    defn newline? (c:Exp) :
+      match(c:LiteralChar) :
+        char(c) == '\n'
+    defn whitespace? (es:ExpList) :
+      for e in es all? :
+        match(e:LiteralChar) :
+          char(e) == ' '
+    defn wrap? (es:ExpList) :
+      for e in es any? :
+        match(e:LiteralChar) :
+          char(e) != ' '
+    defn* group (accum:ExpList) -> ExpList :
+      defn cons-accum (rest:ExpList) :
+        if whitespace?(accum) :
+          rest
+        else if wrap?(accum) :
+          val p = Comm(`paragraph, List(Args(AfnArg(), reverse(accum))))
+          cons(p, rest)
+        else :
+          append(reverse(accum), rest)
+      if empty?(stream) :
+        cons-accum(ExpList())
+      else :
+        val c = next(stream)
+        if newline?(c) : cons-accum(group(ExpList()))
+        else : group(cons(c, accum))
+    expand(group(ExpList()), env))
+
+;============================================================
+;==================== Latex Escapes =========================
+;============================================================
+
+;val TEX-ESCAPE-TABLE = HashTable<Char,String>()
+;TEX-ESCAPE-TABLE['#'] = "\\#"
+;TEX-ESCAPE-TABLE['$'] = "\\$"
+;
+;def-macro(
+;   \<P>\escape_tex{\Body}<P>, fn* (bindings) :
+;      val body = expand(lookup(bindings, `Body))
+;      defn escape (es:List<Exp>) :
+;         if empty?(es) :
+;            es
+;         else :
+;            val tail* = escape(tail(es))
+;            match(head(es)) :
+;               (h:LiteralChar) :
+;                  match(get?(TEX-ESCAPE-TABLE,char(h))) :
+;                    (r:String) : append(seq(LiteralChar,r), tail*)
+;                    (r:False) : cons(h, tail*)
+;               (h:Comm) : cons(Comm(name(h), map(escape,args(h))), tail*)
+;               (h:Binder) : cons(h, tail*)
+;      defn escape (a:Args) :
+;         Args(name(a), escape(args(a)))
+;      escape(body))
+
+main()

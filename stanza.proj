@@ -1,4 +1,4 @@
-include "../webgen/stanza.proj"
+include "webgen/stanza.proj"
 package stanza-site defined-in "src/site.stanza"
 
 build main :

@@ -2,38 +2,38 @@
 
 \def[\stanza(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
 \header{Macintosh}
-\aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+\aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/stanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
 
 \header{Linux}
-\aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+\aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/lstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
 
 \header{Windows}
-\aT[href="resources/stanza/wstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+\aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/wstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
 
 Note that Stanza for Windows requires installing the support library  \aT[href="https://sourceforge.net/projects/mingw-w64/"]{MinGW-w64}.
 }
 
 \def[\exstanza(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
 \subheader{Macintosh}
-\aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+\aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/stanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
 
 \subheader{Linux}
-\aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+\aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/lstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
 
 \subheader{Windows}
-\aT[href="resources/stanza/wstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
+\aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/wstanza_\X _\Y _\Z.zip"]{Stanza \X.\Y.\Z} - Last updated \Date
 }
 
 \def[\oldexstanza_w(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
-Stanza \X.\Y.\Z  (\Date): \aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Linux}, \aT[href="resources/stanza/wstanza_\X _\Y _\Z.zip"]{Windows}
+Stanza \X.\Y.\Z  (\Date): \aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/lstanza_\X _\Y _\Z.zip"]{Linux}, \aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/wstanza_\X _\Y _\Z.zip"]{Windows}
 }
 
 \def[\oldexstanza(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
-Stanza \X.\Y.\Z  (\Date): \aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Linux}
+Stanza \X.\Y.\Z  (\Date): \aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/lstanza_\X _\Y _\Z.zip"]{Linux}
 }
 
 \def[\oldstanza(\X.\Y.\Z){\Date}](\X \Y \Z \Date){
-Stanza \X.\Y.\Z  (\Date): \aT[href="resources/stanza/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="resources/stanza/lstanza_\X _\Y _\Z.zip"]{Linux}, \aT[href="resources/stanza/wstanza_\X _\Y _\Z.zip"]{Windows}
+Stanza \X.\Y.\Z  (\Date): \aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/stanza_\X _\Y _\Z.zip"]{Macintosh}, \aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/lstanza_\X _\Y _\Z.zip"]{Linux}, \aT[href="https://github.com/StanzaOrg/lbstanza/releases/download/\X.\Y.\Z/wstanza_\X _\Y _\Z.zip"]{Windows}
 }
 
 }\in{

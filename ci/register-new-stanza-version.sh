@@ -4,6 +4,8 @@ PS4='>>> '
 TOP="${PWD}"
 
 # Add a new version of Stanza to the downloads page
+# TODO Only supports "Experimental Versions" currently
+# add support for full releases under "\stanza(.*){.*}"
 
 # This script is designed to be run from a Concourse Task with the following env vars
 

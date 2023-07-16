@@ -3462,17 +3462,93 @@ This function checks whether the given file exists given its name.
 defn file-exists? (filename:String) -> True|False
 }
 
+\subsubheader{file-type}
+These functions return the type of file in the passed \code{filename}. If \code{follow-symlinks?} is true, then the symlink is followed to its target and the type of the target filepath is returned. This function throws \code{FileTypeException} on error. By default, this function will follow symlinks. 
+
+\code{
+defn file-type (filename:String, follow-symlinks?:True|False) -> FileType
+defn file-type (filename:String) -> FileType
+}
+
+The \code{FileType} has several subtypes:
+
+\ulT{
+  \liT{\code{RegularFileType}}
+  \liT{\code{DirectoryType}}
+  \liT{\code{SymbolicLinkType}}
+  \liT{\code{OtherType}}
+}
+
+\subsubheader{rename-file}
+This function renames a file from \code{path} to \code{new-path}. This function will throw \code{FileRenameError} on failure. See \aT[href=https://man7.org/linux/man-pages/man2/rename.2.html]{rename} for more information.
+\code{
+defn rename-file (path:String, new-path:String) -> False
+}
+
+\subsubheader{copy-file}
+This function copies the contents of \code{old-path} to \code{new-path}, creating the \code{new-path} file if it doesn't exist. See \code{RandomAccessFile} for more info.
+\code{
+defn copy-file (old-path:String, new-path:String) -> False
+}
+
+\subsubheader{symlink}
+This function creates a symlink at \code{linkpath} that points to \code{target} path. This function will throw \code{SymLinkError} on failure.
+\code{
+defn symlink (target:String, linkpath:String) -> False
+}
+
 \subsubheader{delete-file}
 This function deletes the given file.
 \code{
 defn delete-file (path:String) -> False
 }
 
+\subsubheader{delete-recursive}
+This function deletes the given path and if it is a directory, recursively delets all files and directories inside that directory. If the \code{folow-symlinks?} argument is \code{true}, then any symlinks encountered during the descent will be followed and if the symlink points to a directory, the source of the symlink will also be deleted. Symlinks that point to other files will only delete the symlink and not the source file.
+\code{
+defn delete-recursive (path:String, follow-symlinks?:True|False) -> False
+}
+
 \subsubheader{resolve-path}
-This function expands all symbolic links in the given path and returns an absolute path that points to the same file. If such a file does not exist then \code{false} is returned.
+This function expands all symbolic links in the given path and returns an absolute path that points to the same file. If such a file does not exist then \code{false} is returned. The \code{resolve-path!} variant will thows a \code{PathResolutionError} exception on error.
 \code{
 defn resolve-path (path:String) -> String|False
+defn resolve-path! (path:String) -> String
 }
+
+\subsubheader{split-filepath}
+This function splits the passed \code{path} into two parts by looking for the last '/' character in \code{path}. If \code{path} is empty, then this function throws a \code{EmptyPath} exception. If \code{path} ends with a '/', then this function throws a \code{PathEndsWithSlash} exception. Both of these exceptions are subtypes of \code{PathException}.
+
+NOTE: This function will not work with window's drive paths like \code{C:\\Users\\foo} that use the '\\' character as path separator.
+
+\code{
+defn split-filepath (path:String) -> [String, String]
+}
+
+\subsubheader{dir-files}
+These functions return a tuple of strings containing the names of the files in the given directory \code{dirname}. The \code{include-parents?} flag is used to filter out the "." and ".." directories if present. These functions may throw \code{DirException} on error. For more information see \aT[href=https://man7.org/linux/man-pages/man3/readdir.3p.html]{readdir}.
+
+\code{
+defn dir-files (dirname:String, include-parents?:True|False) -> [String]
+defn dir-files (dirname:String) -> [String]
+}
+
+\subsubheader{create-dir}
+This function will create the passed \code{dirname} directory. If the \code{permissions} parameter is not provided, the default permissions will be \code{0o777}. This function will throw a \code{CreateDirException} on error. See \aT[href=https://man7.org/linux/man-pages/man2/mkdir.2.html]{mkdir} for more info.
+
+\code{
+defn create-dir (dirname:String, permissions:Int) -> False
+defn create-dir (dirname:String) -> False
+}
+
+\subsubheader{create-dir-recursive}
+This function will create directories needed for the steps in the passed \code{filepath}. This function behaves like \code{mkdir -p}. If \code{permissions} is not passed, then the default permissions of \code{0o777} will be used. On error, this function will throw \code{CreateDirException} or \code{CreateRecursiveDirException}.
+
+\code{
+defn create-dir-recursive (filepath:String, permissions:Int) -> False
+defn create-dir-recursive (filepath:String) -> False
+}
+
 
 \subheader{System Utilities}
 Stanza's core library provides convenience functions for manipulating the system environment.

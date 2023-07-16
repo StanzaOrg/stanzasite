@@ -3454,14 +3454,7 @@ This function registers a new garbage collection notifier with Stanza. Garbage c
 defn add-gc-notifier (f: () -> ?) -> False
 }
 
-\subheader{System Utilities}
-Stanza's core library provides convenience functions for manipulating the system environment.
-
-\subsubheader{command-line-arguments}
-The command line arguments used to invoke the program can be retrieved as an array of strings using the following function.
-\code{
-defn command-line-arguments () -> Array<String>
-}
+\subheader{Files & Directories}
 
 \subsubheader{file-exists?}
 This function checks whether the given file exists given its name.
@@ -3479,6 +3472,15 @@ defn delete-file (path:String) -> False
 This function expands all symbolic links in the given path and returns an absolute path that points to the same file. If such a file does not exist then \code{false} is returned.
 \code{
 defn resolve-path (path:String) -> String|False
+}
+
+\subheader{System Utilities}
+Stanza's core library provides convenience functions for manipulating the system environment.
+
+\subsubheader{command-line-arguments}
+The command line arguments used to invoke the program can be retrieved as an array of strings using the following function.
+\code{
+defn command-line-arguments () -> Array<String>
 }
 
 \subsubheader{current-time-ms}

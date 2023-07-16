@@ -3546,6 +3546,14 @@ defn replace-current-process (path:String,
                               args:Tuple<String>) -> Void
 }
 
+\subsubheader{exit}
+
+This function will call the underlying libc \aT[href=https://man7.org/linux/man-pages/man3/exit.3.html]{exit} function.
+
+\code{
+defn exit (code:Int) -> Void
+}
+
 \subheader{Timer}
 \code{Timers} are used for measuring elapsed time at various granularities.
 \code{

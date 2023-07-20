@@ -3521,7 +3521,7 @@ defn delete-file (path:String) -> False
 }
 
 \subsubheader{delete-recursive}
-This function deletes the given path and if it is a directory, recursively delets all files and directories inside that directory. If the \code{folow-symlinks?} argument is \code{true}, then any symlinks encountered during the descent will be followed and if the symlink points to a directory, the source of the symlink will also be deleted. Symlinks that point to other files will only delete the symlink and not the source file.
+This function deletes the given path and if it is a directory, recursively deletes all files and directories inside that directory. If the \code{follow-symlinks?} argument is \code{true}, then any symlinks encountered during the descent will be followed and if the symlink points to a directory, the source of the symlink will also be deleted. Symlinks that point to other files will only delete the symlink and not the source file.
 \code{
 defn delete-recursive (path:String, follow-symlinks?:True|False) -> False
 }

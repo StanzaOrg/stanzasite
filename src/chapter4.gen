@@ -857,14 +857,11 @@ does not overlap with
 Circle(3.000000000000000, 0.000000000000000, radius = 1.000000000000000)
 
 Amorphous Blob
-FATAL ERROR: Ambiguous branch.
-   at shapes.stanza:47.16
-   at shapes.stanza:71.6
-   at shapes.stanza:87.3
-   at shapes.stanza:89.0
+does not overlap with
+Amorphous Blob
 }
 
-Stanza is telling us that there are multiple \code{overlaps?} methods that are equally specific for arguments of type \code{Blob} and \code{Blob}, and it does not know which one to call. To resolve this, users would have to define an \code{overlaps?} method specifically comparing \code{Blob} against \code{Blob}.
+While there are two equally specific \code{overlaps?} methods, Stanza resolves the ambiguity by prioritizing function arguments from left-to-right. Since \code{Blob} is a subtype of \code{Shape}, and therefore stronger, Stanza uses the \code{overlaps?} instance where the first argument is a \code{Blob}. To verify this, try swapping the method bodies.
 
 \section{Revisiting Print}
 

@@ -523,6 +523,23 @@ calc-mortgage{_, 75.00} $
 base-price()
 \#}}
 
+\subsubheader{Chained Function Operator '$>'}
+The following operator allows the functions \code{func1} and \code{func2} to be called in sequence (chained). The input value \code{some-input} is passed as the argument to \code{func1}. \code{func1} is invoked and the output is applied as the argument to \code{func2}.
+\code{
+some-input $> func1 $> func2
+}
+
+Example:
+
+\code{\#{
+stanza> val data = ["  what", "a wonderful", "world.   "]
+stanza> val msg = data $> string-join{_, " "} $> trim $> upper-case
+stanza> println(msg)
+WHAT A WONDERFUL WORLD.
+\#}}
+
+Here a tuple of strings is joined, trimmed of white-space, and converted to uppercase letters in a chained sequence of operations.
+
 \subsubheader{If Conditionals}
 The following form evaluates one of two branches depending on whether the predicate \code{p} is \code{true} or \code{false}.
 \code{
@@ -3504,7 +3521,7 @@ defn delete-file (path:String) -> False
 }
 
 \subsubheader{delete-recursive}
-This function deletes the given path and if it is a directory, recursively delets all files and directories inside that directory. If the \code{folow-symlinks?} argument is \code{true}, then any symlinks encountered during the descent will be followed and if the symlink points to a directory, the source of the symlink will also be deleted. Symlinks that point to other files will only delete the symlink and not the source file.
+This function deletes the given path and if it is a directory, recursively deletes all files and directories inside that directory. If the \code{follow-symlinks?} argument is \code{true}, then any symlinks encountered during the descent will be followed and if the symlink points to a directory, the source of the symlink will also be deleted. Symlinks that point to other files will only delete the symlink and not the source file.
 \code{
 defn delete-recursive (path:String, follow-symlinks?:True|False) -> False
 }

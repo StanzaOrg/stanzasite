@@ -1555,6 +1555,27 @@ Each of the numerical types are subtypes of \code{Comparable}, and can be compar
 
 Each of the numerical types are subtypes of \code{Hashable}, and supports the \code{hash} multi.
 
+\subsubheader{Numeric Literals}
+
+Due to the separate types for each number, distinct numeric literal forms are required for each. Below are examples:
+
+\code{
+val kB : Double      = 1.38e-23
+val kB_f : Float     = 1.38e-23F
+
+val R : Float        = 8.314f
+
+val Meaning : Int    = 42
+val Meaning_L : Long = 42L
+val Prime-6 : Long   = 13l
+
+val ascii-0 : Byte   = 48Y
+val ascii-1 : Byte   = 0x31y
+
+}
+
+Note that the suffix can be either lower or upper case. There is no space between the last number digit and the suffix character. 
+
 \subsubheader{Integer Arithmetic}
 Integer numerical types support the standard arithmetic operations.
 \code{

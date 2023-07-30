@@ -2099,8 +2099,8 @@ defn index-of-char (s:String, c:Char) -> False|Int
 \subsubheader{index-of-chars}
 \code{index-of-chars} searches the string \code{s}, within the bounds indicated by the range \code{r}, for the first occurrence of the substring \code{b}. If it is found, then its index is returned, otherwise \code{false} is returned. If a range is not given, then by default the function searches through the entire string. The given range must be a \italic{dense index range} with respect to the string.
 \code{
-defn index-of-chars (a:String, r:Range, b:String) -> False|Int
-defn index-of-chars (a:String, b:String) -> False|Int
+defn index-of-chars (s:String, r:Range, b:String) -> False|Int
+defn index-of-chars (s:String, b:String) -> False|Int
 }
 
 \subsubheader{last-index-of-char}
@@ -2113,8 +2113,8 @@ defn last-index-of-char (s:String, c:Char) -> False|Int
 \subsubheader{last-index-of-chars}
 \code{last-index-of-chars} searches the string \code{s}, within the bounds indicated by the range \code{r}, for the last occurrence of the substring \code{b}. If it is found, then its index is returned, otherwise \code{false} is returned. If a range is not given, then by default the function searches through the entire string. The given range must be a \italic{dense index range} with respect to the string.
 \code{
-defn last-index-of-chars (a:String, r:Range, b:String) -> False|Int
-defn last-index-of-chars (a:String, b:String) -> False|Int
+defn last-index-of-chars (s:String, r:Range, b:String) -> False|Int
+defn last-index-of-chars (s:String, b:String) -> False|Int
 }
 
 \subsubheader{replace}

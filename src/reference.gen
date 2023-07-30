@@ -2394,7 +2394,7 @@ defmulti head<?T> (x:List<?T>) -> T
 \subsubheader{tail}
 \code{tail} returns the tail of a list. It is a fatal error to call \code{tail} on an empty list.
 \code{
-defmulti tail<?T> (x:List<?T>) -> T
+defmulti tail<?T> (x:List<?T>) -> List<T>
 }
 
 \subsubheader{empty?}

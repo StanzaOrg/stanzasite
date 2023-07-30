@@ -1598,6 +1598,25 @@ defn divide (x:Double, y:Double) -> Double
 
 Note that arithmetic operations must be performed between values of the same numerical type. Users must manually convert values from one type to another if their types differ.
 
+In addition, the user can access the \code{nan?} function to check for "Not a Number" conditions.
+
+\code{
+defn nan? (x:Double) -> True|False
+defn nan? (x:Float) -> True|False
+}
+
+Below are some additional helper values related to floating point values. These can be useful for unit tests:
+
+\code{
+val FLOAT-NAN : Float
+val FLOAT-POSITIVE-INFINITY : Float
+val FLOAT-NEGATIVE-INFINITY : Float
+
+val DOUBLE-NAN : Double
+val DOUBLE-POSITIVE-INFINITY : Double
+val DOUBLE-NEGATIVE-INFINITY : Double
+}
+
 \subsubheader{Signed Arithmetic}
 All numerical values except of type \code{Byte} support the additional negation and absolute value operations. \code{Byte} values are unsigned and hence do not support these operations.
 \code{
@@ -1651,6 +1670,15 @@ val INT-MAX : Int
 val INT-MIN : Int
 val LONG-MAX : Long
 val LONG-MIN : Long
+
+val FLOAT-MAX : Float
+val FLOAT-MIN-NORMAL : Float
+val FLOAT-MIN : Float
+
+val DOUBLE-MAX : Double
+val DOUBLE-MIN-NORMAL : Double
+val DOUBLE-MIN : Double
+
 }
 
 \subsubheader{Numerical Conversion}

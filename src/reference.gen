@@ -350,6 +350,54 @@ The initializing expression may be omitted to declare an uninitialized variable.
 var x
 }
 
+\subsubheader{Enum Declarations}
+Enumerated types are defined with the \code{defenum} macro:
+
+\code{
+defenum Direction :
+  N
+  E
+  S
+  W
+}
+
+When defining an enum, the macro expands to a \code{deftype} for \code{Direction} and then separate \code{deftype}'s for each of the enumerated values:
+
+\code{
+deftype Direction <: Equalable & Hashable
+deftype N <: Direction
+deftype E <: Direction
+deftype S <: Direction
+deftype W <: Direction
+}
+
+The macro also expands the following functions for ease of use.
+
+\code{
+; Direction -> Int and vice versa
+defn Direction (i:Int) -> Direction
+defn Direction? (i:Int) -> Direction|False
+defn to-int (d:Direction) -> Int
+; To satisfy Equalable & Hashable
+defmethod equal? (a:Direction, b:Direction) -> Int
+defmethod hash (x:Direction) -> Int
+; Printing
+defmethod print (o:OutputStream, x:Direction) -> False
+}
+
+Note that the enumerated integer values are ordered and start from 0. In this case N=0, E=1, S=2, W=3.
+
+The \code{defenum} can also take a parent type just like a \code{deftype}:
+
+\code{
+public deftype AssetType
+
+public defenum CompilerOutputs <: AssetType :
+  ObjectFile
+  Executable
+  SharedLibrary
+}
+
 \subheader{Expressions}
 There are only a handful of core forms in Stanza but the core macro library provides a large collection of syntactic sugar for expressing commonly used constructs.
 

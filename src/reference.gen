@@ -375,8 +375,8 @@ The macro also expands the following functions for ease of use.
 
 \code{
 ; Direction -> Int and vice versa
-defn Direction(i:Int) -> Direction
-defn Direction?(i:Int) -> Direction|False
+defn Direction (i:Int) -> Direction
+defn Direction? (i:Int) -> Direction|False
 defn to-int (d:Direction) -> Int
 ; To satisfy Equalable & Hashable
 defmethod equal? (a:Direction, b:Direction) -> Int

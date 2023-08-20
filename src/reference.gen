@@ -980,6 +980,308 @@ The following form expands into the consequent if the given compile-time flag is
 
 If the \code{#else} branch is not provided then it expands into the empty expression \code{()} if the flag is defined.
 
+\subheader{Build System}
+
+Stanza comes with a built-in build system for helping to build complicated Stanza projects.
+
+\subsubheader{Simple Project with .stanza Files}
+
+Let's assume that your project has the following \code{.stanza} files:
+
+Inside \code{mydir/fileA.stanza}:
+
+\code{
+defpackage mypackageA :
+  import core
+  import collections
+  
+println("This is package A")
+}
+
+Inside \code{mydir/fileB.stanza}:
+
+\code{
+defpackage mypackageB :
+  import core
+  import collections
+  
+println("This is package B")
+}
+
+Inside \code{mydir/fileC.stanza}:
+
+\code{
+defpackage mypackageC :
+  import core
+  import collections
+  import mypackageA
+  import mypackageB
+  
+println("This is package C")
+}
+
+\subsubheader{Creating a stanza.proj File}
+
+Create the following \code{mydir/stanza.proj} file:
+
+\code{
+package mypackageA defined-in "fileA.stanza"
+package mypackageB defined-in "fileB.stanza"
+package mypackageC defined-in "fileC.stanza"
+}
+
+These statements tell the Stanza compiler which files to look in to find the definition of each Stanza package.
+
+\subsubheader{Calling the Compiler}
+
+In a new shell, navigate to \code{mydir} and type the following to compile \code{mypackageC}:
+
+\code{
+stanza mypackageC -o myapp
+}
+
+This will tell the Stanza compiler to compile \code{mypackageC} to an application called \code{myapp}. Because \code{mypackageC} imports \code{mypackageA} and \code{mypackageB}, the Stanza compiler will pull in the files containing those packages too.
+
+\subsubheader{Other .proj Files}
+
+Note that the file called \code{stanza.proj} is always read by the Stanza compiler to determine where files are located. If you have additional \code{.proj} files, e.g. \code{custom.proj}, you can provide them as an additional input to the Stanza compiler like so:
+
+\code{
+stanza custom.proj mypackageC -o myapp
+}
+
+\subsubheader{Caching .pkg Files}
+
+You can use Stanza's incremental compilation feature, by caching the `.pkg` files created by the Stanza compiler. 
+
+Create a folder called \code{mydir/pkgs}, and run the following command:
+
+\code{
+stanza mypackageC -o myapp -pkg pkgs
+}
+
+This will compile \code{mypackageC} to the application \code{myapp} and save any intermediate \code{.pkg} files to the \code{pkgs} folder. If you then go to compile \code{mypackageC} again, Stanza will pull in the cached \code{.pkg} files automatically if their corresponding source files have not changed.
+
+\subsubheader{Environment Variables}
+
+Stanza allows the use of environment variables in the \code{.proj} file. Suppose that \code{fileC.stanza} is actually in a directory specified by the \code{FILE_C_INSTALLATION} environment variable. Then we can accomodate this with the following change to \code{stanza.proj}:
+
+\code{\#{
+package mypackageA defined-in "fileA.stanza"
+package mypackageB defined-in "fileB.stanza"
+package mypackageC defined-in "{FILE_C_INSTALLATION}/fileC.stanza"
+\#}}
+
+\subsubheader{Packages Specified by Directory}
+
+Stanza also provides the following shorthand for specifying the location of multiple Stanza packages as long as they obey the following naming convention.
+
+\code{
+packages mysystem/utils/* defined-in "src/utils"
+}
+
+The above statement indicates that all packages that begin with \code{mysystem/utils/} can be found within the directory \code{src/utils}.
+
+Here are some examples of how Stanza maps package names onto filenames:
+
+- The package \code{mysystem/utils/lists} will be expected to be in \code{src/utils/lists.stanza}.
+
+- The package \code{mysystem/utils/arrays} will be expected to be in \code{src/utils/arrays.stanza}.
+
+- The package \code{mysystem/utils/network/transfer} will be expected to be in \code{src/utils/network/transfer.stanza}.
+
+
+\subsubheader{Special Variables}
+
+There are two special variables that are available to you in the \code{.proj} file called \code{.} and \code{WORKDIR}. 
+
+The \code{WORKDIR} variable refers to the absolute path to the current working directory, the directory from which the Stanza compiler was ran.
+
+The \code{.} variable refers to the absolute path to the directory containing the \code{.proj} file. 
+
+These two special variables will be handy for compiling foreign files.
+
+\subsubheader{Project Structure}
+
+Suppose that we are working on the application in the previous section of this document, and we now need to include a library project in the directory \code{/mypath/to/mylib}, which has its own \code{.stanza} files and dependency structure.
+
+\subsubheader{Include Statement}
+
+Assuming that \code{mylib} has a \code{.proj} file called \code{/mypath/to/mylib/stanza.proj}, we can include these dependencies by modifying \code{mydir/stanza.proj} like so:
+
+\code{
+include "/mypath/to/mylib/stanza.proj"
+package mypackageA defined-in "fileA.stanza"
+package mypackageB defined-in "fileB.stanza"
+package mypackageC defined-in "fileC.stanza"
+}
+
+\subsubheader{Foreign File Dependencies}
+
+Suppose that our package \code{mypackageC} requires some functions declared in the foreign files \code{chelpers.c} and \code{cpphelpers.o}, and needs to be compiled with the flags \code{-lmyhelpers}. We can tell Stanza to automatically pull in these dependencies by adding the following line to our \code{stanza.proj} file:
+
+\code{
+package mypackageC requires :
+  ccfiles:
+    "chelpers.c"
+    "cpphelpers.o"
+  ccflags:
+    "-lmyhelpers"
+}
+
+\subsubheader{Platform-Specific Files and Flags}
+
+Suppose that \code{mypackageC} requires the \code{-lmyhelpers} flag only when compiling on the \code{os-x} platform. We can specify this like so:
+
+\code{
+package mypackageC requires :
+  ccfiles:
+    "chelpers.c"
+    "cpphelpers.o"
+  ccflags:
+    on-platform :
+      os-x : "-lmyhelpers"
+      else : ()
+}
+
+\subsubheader{Running a Foreign Compiler}
+
+Suppose that \code{cpphelpers.o} is created by calling a foreign compiler (e.g. \code{g++}). We can request Stanza to run a given shell command whenever it compiles an app that depends upon \code{cpphelpers.o} like so:
+
+\code{\#{
+package mypackageC requires :
+  ccfiles:
+    "chelpers.c"
+    "cpphelpers.o"
+  ccflags:
+    "-lmyhelpers"
+    
+compile file "cpphelpers.o" from "cpphelpers.cpp" :
+  "g++ {.}/cpphelpers.cpp -c -o {.}/cpphelpers.o"
+\#}}
+
+Note the use of the special \code{.} variable. Recall that it refers to the absolute path of the directory containing the \code{.proj} file. Our use of \code{\#{{.}\#}} allows the \code{g++} call to work no matter which directory it is ran from. 
+
+Note that the \code{on-platform} construct works for the \code{compile} construct as well.
+
+If it is a flag that requires calling a foreign compiler, and not a file, then you must use the \code{compile flag} construct instead. Here is an example:
+
+\code{
+compile flag "-lcurl" :
+  "cd mypath/to/curl && make"
+}
+
+\subsubheader{Conditional Imports}
+
+Suppose that we are working on the following package \code{animals}, which contains the following definitions:
+
+\code{
+defpackage animals :
+  import core
+  import collections
+  
+public defstruct Dog :
+  name: String
+  weight: Double
+  breed: String
+}
+
+\subsubheader{Adding Support for JSON}
+
+Now suppose that we wish to support converting \code{Dog} objects to JSON strings. To do this, there is a library in the package \code{json-exporter} containing a single multi called \code{to-json}, and we need to add a new method to support \code{Dog}.
+
+\code{\#{
+defpackage animals :
+  import core
+  import collections
+  import json-exporter
+  
+public defstruct Dog :
+  name: String
+  weight: Double
+  breed: String
+  
+defmethod to-json (d:Dog) :
+  to-string("{name:%~, weight:%_, breed:%~}" % [name(d), weight(d), breed(d)])
+\#}}
+
+However, this change makes the \code{animals} package dependent upon the \code{json-exporter} package! This means that any application that requires the \code{Dog} datastructure will also need to pull in the \code{json-exporter} package, even if the application doesn't require JSON support at all!
+
+To overcome this, we use the conditional imports feature in the build system.
+
+\subsubheader{Separating the JSON functionality}
+
+Let's move the JSON support for animals into a different package:
+
+\code{\#{
+defpackage animals/json :
+  import core
+  import collections
+  import json-exporter
+  import animals
+  
+defmethod to-json (d:Dog) :
+  to-string("{name:%~, weight:%_, breed:%~}" % [name(d), weight(d), breed(d)])
+\#}}
+
+This will allow any app to optionally include the \code{animals/json} package if they require JSON support, or omit it if they don't. 
+
+\subsubheader{Automatic Import}
+
+Even better, we can ask the Stanza build system to *automatically* pull in the \code{animals/json} package whenever we need both the \code{animals} package and the \code{json-exporter} package together.
+
+The resulting \code{stanza.proj} file looks like this:
+
+\code{
+package animals defined-in "animals.stanza"
+package animals/json defined-in "animals-json.stanza"
+package json-exporter defined-in "json-exporter.stanza"
+import animals/json when-imported (json-exporter, animals)
+}
+
+\subsubheader{Build Targets}
+
+Suppose that the following is the final compilation command that you use to build your application:
+
+\code{
+stanza mylib1 myapp -o myapplication -ccfiles "runtime.c" -optimize -pkg "mypkgs"
+}
+
+You can store this information in a build target in your \code{stanza.proj} file using the following syntax:
+
+\code{
+build full-application :
+  inputs:
+    mylib1
+    myapp
+  o: "myapplication"
+  ccfiles: "runtime.c"
+  pkg: "mypkgs"
+  optimize
+}
+
+Then you can choose to build this target using the following command:
+
+\code{
+stanza build full-application
+}
+
+
+If no target name is provided:
+
+\code{
+stanza build
+}
+
+then Stanza will assume that there is a target named `main`. 
+
+One advantage of using build targets is that Stanza will automatically track the files that the compilation process depended upon. If these files haven't changed since you last built the target, then Stanza will print out a message like the following:
+
+\code{
+Build target full-application is already up-to-date.
+}
+
+
 
 \header{Core Package}
 The \code{core} package consists of functions and types used for basic programming.

@@ -79,6 +79,16 @@ defpackage mypackage :
       prefix(False) => C
 }
 
+In addition to the \code{import} statement, there is also the \code{forward} statement:
+
+\code{
+defpackage mypackage :
+  import core
+  forward mydefs
+}
+
+The \code{forward} statement will import the package \code{mydefs} and then expose any \code{public} symbols found in it as if they are coming from the \code{mypackage} package.
+
 \subsubheader{Public Visibility}
 Either of the following forms can be used to indicate that the following declaration(s) is/are publicly visible.
 \code{
@@ -290,6 +300,96 @@ defn f (x:Int, y:String) -> Char :
 }
 
 To declare tail-recursive functions use the \code{defn*} tag in place of the \code{defn} tag in the above forms.
+
+\subsubheader{Keyword Arguments}
+
+Argument bindings can use keyword named arguments by using the following syntax:
+
+\code{
+defn f (a:Int -- b:String) :
+  println("A: %_  B: %_" % [a, b])
+}
+
+Note the \code{--} as a separator between the positional arguments and the keyword arguments. In this example - \code{a} is a positional argument and \code{b} is a "Keyword Argument". The function \code{f} can be invoked in the following ways:
+
+\code{
+stanza> f(10, b = "Hello")
+A: 10 B: Hello
+false
+stanza> f(b = "Hello", 10)
+A: 10 B: Hello
+false
+}
+
+Invoking \code{f} without the named keyword \code{b} (ie, treating \code{b} as just another positional argument) is not allowed:
+
+\code{
+stanza> f(10, "Hello")
+No appropriate function 'f' for argument types (Int, String). Possibilities are:
+  f: (Int, b:String) -> False in package 'repl16966'
+}
+
+\subsubheader{Optional Arguments}
+
+Both positional arguments and keyword arguments can be made optional by supplying a default value for that argument. Example:
+
+\code{
+defn g (a:Int = 10 -- b:String = "Goodbye") :
+  println("A: %_ B: %_" % [a, b])
+}
+
+In this construction all of the following are valid:
+
+\code{
+stanza> g(b = "Hell0")
+A: 10 B: Hell0
+false
+stanza> g(5)
+A: 5 B: Goodbye
+false
+stanza> g()
+A: 10 B: Goodbye
+stanza> g(15, b = "Back Again")
+A: 15 B: Back Again
+false
+stanza> g(b = "Back Again", 25)
+A: 25 B: Back Again
+false
+}
+
+Using \code{b} as a positional argument will cause a syntax error as before.
+
+\subsubheader{Variadic Arguments}
+
+The following defines a function that takes one integer argument and 0 or more string arguments:
+
+\code{
+  defn func (a:Int, b:String ...):
+    println("A: %_ len(B): %_ B: %," % [a, length(b), b])
+}
+
+In the body of \code{func}, the argument \code{b} will have type \code{Tuple<String>}. If we invoke this function we see the following:
+
+\code{
+stanza> func(10)
+A: 10 len(B): 0 B: 
+false
+stanza> func(10, "asdf")
+A: 10 len(B): 1 B: asdf
+false
+stanza> func(10, "asdf", "qwer")
+A: 10 len(B): 2 B: asdf, qwer
+false
+}
+
+We can also pass the argument \code{b} by keyword argument:
+
+\code{
+stanza> func(10, b = ["apples", "grapes", "bananas"])
+A: 10 len(B): 3 B: apples, grapes, bananas
+false
+}
+
 
 \subsubheader{Multi Declarations}
 

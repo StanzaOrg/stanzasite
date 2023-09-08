@@ -79,6 +79,16 @@ defpackage mypackage :
       prefix(False) => C
 }
 
+In addition to the \code{import} statement, there is also the \code{forward} statement:
+
+\code{
+defpackage mypackage :
+  import core
+  forward mydefs
+}
+
+The \code{forward} statement will import the package \code{mydefs} and then expose any \code{public} symbols found in it as if they are coming from the \code{mypackage} package.
+
 \subsubheader{Public Visibility}
 Either of the following forms can be used to indicate that the following declaration(s) is/are publicly visible.
 \code{

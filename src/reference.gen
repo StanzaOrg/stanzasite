@@ -740,6 +740,18 @@ match(x, y) :
    (x, y) : body3
 }
 
+\subsubheader{Quick Match}
+There is another version of the \code{match} statement:
+
+\code{
+match(x:Int):
+  x * 2
+else:
+  throw(Exception("X is not an Int"))
+}
+
+This provides a condensed syntax for matching against only one type of object and ignoring or raising an error for the rest. In this example, anything that is not an \code{Int} throws an exception.
+
 \subsubheader{Switch Conditionals}
 The following form creates a chain of \code{if-else} expressions for evaluating a sequence of bodies.
 \code{

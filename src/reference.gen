@@ -1393,6 +1393,22 @@ One advantage of using build targets is that Stanza will automatically track the
 Build target full-application is already up-to-date.
 }
 
+\subsubheader{Building Test Targets}
+
+To support the testing framework, the user can use the \code{build-test} statement to define targets that compile to test runner executables:
+
+\code{
+build-test tests:
+  inputs:
+    proj/tests/feature1
+    proj/tests/feature2
+  o: "unit-tests"
+  pkg: "test-pkgs"
+}
+
+In this example the target \code{tests} will be built as an executable named \code{unit-tests}. This new executable will be compiled with the flag \code{TESTING} defined.
+
+Note that it is a good idea to use the \code{pkg} statement to define a separate package cache directory for the unit test runner executable. Because of the added \code{TESTING} flag, the compiler will see normal executables and packages as being different from test executables and packages. If the same package cache directory is used for both normal and test executables, the compiler will attempt to rebuild the packages/executables every time you switch targets - instead of using the cached packages. This results in unexpectedly long build times.
 
 
 \header{Core Package}

@@ -331,7 +331,7 @@ No appropriate function 'f' for argument types (Int, String). Possibilities are:
 
 \subsubheader{Optional Arguments}
 
-Both positional arguments and keyword arguments can be made optional by supplying a default value for that argument. Example:
+Both positional arguments and keyword arguments can be made optional by supplying any expression as the default value for that argument. Example:
 
 \code{
 defn g (a:Int = 10 -- b:String = "Goodbye") :
@@ -358,6 +358,19 @@ false
 }
 
 Using \code{b} as a positional argument will cause a syntax error as before.
+
+The expression used as the default is not limited to just a string constant. This expression can:
+
+1.  be a function call
+2.  reference other arguments by name
+3.  have side effects
+4.  be unknown at compile time
+
+The expression must evaluate to the type of the argument that it is applied to.
+
+This default expression is executed when the function invocation occurs. This is in stark contrast to Python, for example, where the expression for the default value of an argument is executed at creation of the function or class.
+This can help avoid a whole \aT[href=https://docs.python-guide.org/writing/gotchas/#mutable-default-arguments]{class of errors} but does come with runtime trade-offs.
+
 
 \subsubheader{Variadic Arguments}
 

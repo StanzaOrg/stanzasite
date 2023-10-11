@@ -1713,12 +1713,6 @@ This global value holds the standard output stream representing the user's termi
 val STANDARD-OUTPUT-STREAM : OutputStream
 }
 
-\subsubheader{STANDARD-ERROR-STREAM}
-This global value holds the standard error stream. It represents the user's terminal if error messages are not redirected or the error buffer otherwise.
-\code{
-val STANDARD-ERROR-STREAM : OutputStream
-}
-
 \subsubheader{with-output-stream}
 The current output stream is, by default, the standard output stream. The following function will set the current output stream to \code{o} before calling the function \code{f} and then restore the current output stream afterwards.
 \code{
@@ -1739,6 +1733,18 @@ defn println (x) -> False
 defn print-all (xs:Seqable) -> False
 defn println-all (xs:Seqable) -> False
 }
+
+\subsubheader{Standard Error}
+Similar to the standard output facilities described above, standard error can be accessed and overriden with similar functions:
+
+\code{
+val STANDARD-ERROR-STREAM : OutputStream
+defn with-error-stream<?T> (o:OutputStream, body: () -> ?T) -> T
+defn current-error-stream () -> OutputStream
+}
+
+It is good practice not to reference \code{STANDARD-ERROR-STREAM} directly but to instead use the \code{current-error-stream()} function to access the standard error stream buffer.
+
 
 \subheader{InputStream}
 An \code{InputStream} represents a source from which we can read characters and values.

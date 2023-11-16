@@ -1538,7 +1538,7 @@ A \code{Seq} represents a possibly infinite sequence of items of type \code{T}.
 deftype Seq<T> <: Seqable<T>
 }
 
-Mandatory minimal implementation: \code{empty?}, \code{next}, \code{peek}.
+Mandatory minimal implementation: \code{empty?}, \code{next}.
 
 \subsubheader{empty?}
 The \code{empty?} multi returns \code{true} if the sequence contains more items, or \code{false} otherwise.
@@ -1552,10 +1552,19 @@ The \code{next} multi returns the next item in the sequence. Repeated calls to \
 defmulti next<?T> (s:Seq<?T>) -> T
 }
 
+\subheader{PeekSeq}
+A \code{PeekSeq} is derived from \code{Seq} and adds the ability to "peek" at the next element in a sequence.
+
+\code{
+deftype PeekSeq<T> : Seq<T>
+}
+
+Mandatory minimal implementation: \code{empty?}, \code{next}, \code{peek}.
+
 \subsubheader{peek}
 The \code{peek} multi inspects the next item in the sequence but does not consume it. Repeated calls to \code{peek} results in the same item being returned. It is a fatal error to call \code{peek} on an empty sequence.
 \code{
-defmulti peek<?T> (s:Seq<?T>) -> T
+defmulti peek<?T> (s:PeekSeq<?T>) -> T
 }
 
 \subheader{Seqable}

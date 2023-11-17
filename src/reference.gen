@@ -331,7 +331,7 @@ No appropriate function 'f' for argument types (Int, String). Possibilities are:
 
 \subsubheader{Optional Arguments}
 
-Both positional arguments and keyword arguments can be made optional by supplying a default value for that argument. Example:
+Both positional arguments and keyword arguments can be made optional by supplying any expression as the default value for that argument. Example:
 
 \code{
 defn g (a:Int = 10 -- b:String = "Goodbye") :
@@ -358,6 +358,19 @@ false
 }
 
 Using \code{b} as a positional argument will cause a syntax error as before.
+
+The expression used as the default is not limited to just a string constant. This expression can:
+
+1.  be a function call
+2.  reference other arguments by name
+3.  have side effects
+4.  be unknown at compile time
+
+The expression must evaluate to the type of the argument that it is applied to.
+
+This default expression is executed when the function invocation occurs. This is in stark contrast to Python, for example, where the expression for the default value of an argument is executed at creation of the function or class.
+This can help avoid a whole \aT[href=https://docs.python-guide.org/writing/gotchas/#mutable-default-arguments]{class of errors} but does come with runtime trade-offs.
+
 
 \subsubheader{Variadic Arguments}
 
@@ -1393,6 +1406,22 @@ One advantage of using build targets is that Stanza will automatically track the
 Build target full-application is already up-to-date.
 }
 
+\subsubheader{Building Test Targets}
+
+To support the testing framework, the user can use the \code{build-test} statement to define targets that compile to test runner executables:
+
+\code{
+build-test tests:
+  inputs:
+    proj/tests/feature1
+    proj/tests/feature2
+  o: "unit-tests"
+  pkg: "test-pkgs"
+}
+
+In this example the target \code{tests} will be built as an executable named \code{unit-tests}. This new executable will be compiled with the flag \code{TESTING} defined.
+
+Note that it is a good idea to use the \code{pkg} statement to define a separate package cache directory for the unit test runner executable. Because of the added \code{TESTING} flag, the compiler will see normal executables and packages as being different from test executables and packages. If the same package cache directory is used for both normal and test executables, the compiler will attempt to rebuild the packages/executables every time you switch targets - instead of using the cached packages. This results in unexpectedly long build times.
 
 
 \header{Core Package}
@@ -1706,12 +1735,6 @@ This global value holds the standard output stream representing the user's termi
 val STANDARD-OUTPUT-STREAM : OutputStream
 }
 
-\subsubheader{STANDARD-ERROR-STREAM}
-This global value holds the standard error stream. It represents the user's terminal if error messages are not redirected or the error buffer otherwise.
-\code{
-val STANDARD-ERROR-STREAM : OutputStream
-}
-
 \subsubheader{with-output-stream}
 The current output stream is, by default, the standard output stream. The following function will set the current output stream to \code{o} before calling the function \code{f} and then restore the current output stream afterwards.
 \code{
@@ -1732,6 +1755,18 @@ defn println (x) -> False
 defn print-all (xs:Seqable) -> False
 defn println-all (xs:Seqable) -> False
 }
+
+\subsubheader{Standard Error}
+Similar to the standard output facilities described above, standard error can be accessed and overriden with similar functions:
+
+\code{
+val STANDARD-ERROR-STREAM : OutputStream
+defn with-error-stream<?T> (o:OutputStream, body: () -> ?T) -> T
+defn current-error-stream () -> OutputStream
+}
+
+It is good practice not to reference \code{STANDARD-ERROR-STREAM} directly but to instead use the \code{current-error-stream()} function to access the standard error stream buffer.
+
 
 \subheader{InputStream}
 An \code{InputStream} represents a source from which we can read characters and values.

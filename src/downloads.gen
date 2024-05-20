@@ -48,8 +48,9 @@ The entire Stanza repository is hosted on \aT[href="https://github.com/StanzaOrg
 \stanza(0.12.15){February 19, 2019}
 
 \header{Experimental Versions}
-\exstanza(0.18.73){May 20, 2024}
+\exstanza(0.18.74){May 20, 2024}
 \subheader{Older Versions}
+\oldexstanza_w(0.18.73){May 20, 2024}
 \oldexstanza_w(0.18.72){May 19, 2024}
 \oldexstanza_w(0.18.71){May 18, 2024}
 \oldexstanza_w(0.18.70){May 08, 2024}
